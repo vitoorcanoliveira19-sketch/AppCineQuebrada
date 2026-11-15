@@ -5,6 +5,8 @@ const participanteRoutes = require("./routes/participanteRoutes");
 const authRoutes = require("./routes/authRoutes");
 const cadastrosAdminRoutes = require("./routes/cadastrosAdminRoutes");
 const turmaRoutes = require("./routes/turmaRoutes");
+const matriculaRoutes = require("./routes/matriculaRoutes");
+const chamadaRoutes = require("./routes/chamadaRoutes");
 
 const app = express();
 
@@ -20,7 +22,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "32kb" }));
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -34,6 +36,8 @@ app.use("/", participanteRoutes);
 app.use("/", authRoutes);
 app.use("/", cadastrosAdminRoutes);
 app.use("/", turmaRoutes);
+app.use("/", matriculaRoutes);
+app.use("/", chamadaRoutes);
 app.use(errorHandler);
 
 module.exports = app;

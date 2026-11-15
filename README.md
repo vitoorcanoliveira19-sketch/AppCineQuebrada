@@ -57,14 +57,14 @@ O endpoint legado `POST /cadastro` responde `410 Gone`. Contas internas não pod
 
 - `POST /auth/login`: autentica por email e senha e devolve JWT válido por 8 horas.
 - `GET /auth/me`: valida a sessão e retorna o perfil, sem campos de senha.
-- `GET /admin/participantes`: consulta protegida para administrador e educador.
+- `GET /admin/participantes`: consulta protegida somente para administrador, pois inclui dados pessoais de participantes.
 - `PATCH /admin/participantes/:id/status`: somente administrador.
 - `POST /admin/educadores`: somente administrador; cria conta de acesso para educador com senha de pelo menos 12 caracteres.
 - `GET /admin/cadastros/atividades`, `GET /admin/cadastros/atividades/:id`, `POST /admin/cadastros/atividades`, `PUT /admin/cadastros/atividades/:id` e `PATCH /admin/cadastros/atividades/:id`: cadastro administrativo com nome, descrição e campo `ativa`.
 - `GET /admin/cadastros/salas`, `GET /admin/cadastros/salas/:id`, `POST /admin/cadastros/salas`, `PUT /admin/cadastros/salas/:id` e `PATCH /admin/cadastros/salas/:id`: cadastro administrativo com nome/identificação e campo `ativa`.
 - `GET /admin/cadastros/educadores`, `GET /admin/cadastros/educadores/:id`, `POST /admin/cadastros/educadores`, `PUT /admin/cadastros/educadores/:id` e `PATCH /admin/cadastros/educadores/:id`: cadastro de equipe com nome, email, contato e campo `ativo`.
 
-Os cadastros em `/admin/cadastros` aceitam consulta de administrador e educador autenticados; criação, edição e alteração de situação ficam restritas ao administrador. Use `PATCH` com `{ "ativa": false }` para atividades/salas ou `{ "ativo": false }` para educadores para inativar sem excluir. Nomes de atividades e salas, e emails de educadores, são únicos no banco. O app oferece a tela **Cadastros** na área administrativa da equipe e apresenta erros de campo retornados pelo servidor.
+Os cadastros em `/admin/cadastros` aceitam consulta de administrador e educador autenticados; criação, edição e alteração de situação ficam restritas ao administrador. Educadores veem somente nome e situação dos registros de equipe. Use `PATCH` com `{ "ativa": false }` para atividades/salas ou `{ "ativo": false }` para educadores para inativar sem excluir. Nomes de atividades e salas, e emails de educadores, são únicos no banco. O app oferece a tela **Cadastros** na área administrativa da equipe e apresenta erros de campo retornados pelo servidor.
 
 ### Turmas administrativas
 
@@ -88,6 +88,8 @@ JWT_SECRET=segredo-aleatorio-com-pelo-menos-32-caracteres
 ```
 
 Mantenha `JWT_SECRET` fora do repositório e use pelo menos 32 caracteres aleatórios. PowerShell pode gerar um valor com: `$bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)`. Não registre o segredo em logs.
+
+O backend falha na inicialização se faltar uma variável de banco ou se `JWT_SECRET` tiver menos de 32 caracteres. O corpo JSON da API é limitado a 32 KB. Em produção, configure `NODE_ENV=production` no ambiente do container. A política CORS incluída permite origens localhost para desenvolvimento; implantações web em outros domínios precisam configurar uma lista de origens confiáveis antes de habilitar acesso pelo navegador.
 
 ### Primeiro administrador
 
@@ -219,10 +221,22 @@ No emulador Android, o app usa `10.0.2.2:3001`; no navegador e no simulador iOS,
 ## Observacoes de arquitetura
 
 - O backend tenta reconectar ao MySQL durante a inicializacao para tolerar o tempo de subida do banco no Kubernetes.
+- Tokens JWT são revalidados contra o usuário atual em cada requisição autenticada; bloquear ou mudar o papel da conta revoga o acesso sem aguardar o token expirar. Alterações em atividades, salas, educadores e turmas são exclusivas de administrador; educadores só consultam as próprias turmas e não recebem email/contato dos demais educadores nas consultas de cadastro.
+- Respostas de erro não incluem mensagem interna do driver, SQL, valores rejeitados ou corpo da requisição. Logs registram método, caminho e classe do erro, sem conteúdo pessoal da inscrição.
+- Não há migração de schema nesta revisão. A inicialização mantém `sequelize.sync()` sem `force` ou `alter`; não apaga tabelas nem dados. Faça backup antes de qualquer mudança de schema e não use opções destrutivas de sincronização. As colunas legadas `Participante.ativo`, `analisado_em` e `analisado_por_id` continuam sendo acrescentadas de forma aditiva quando ausentes.
 - Senhas são armazenadas como hash bcrypt e nunca retornadas pela API.
 - Usuários existentes sem papel ficam bloqueados após a sincronização, sem privilégios automáticos.
 - O campo `email` e unico no banco.
 - As inscricoes publicas sao armazenadas na tabela `Participante` com status inicial `pendente`; nao representam matricula confirmada.
+- Matriculas sao registros administrativos separados da inscricao de interesse. Apenas participantes aprovados e ativos podem ser matriculados em turmas ativas; a API de matriculas exige o papel `administrador`.
+- A regra de duplicidade permite no maximo uma matricula com situacao `ativa` para o mesmo par participante/turma. Matriculas encerradas permanecem no historico; uma nova matricula pode ser criada depois do encerramento. A reativacao tambem verifica a regra de duplicidade e a elegibilidade atual.
+- A entidade `Matricula` possui os campos `id`, `participanteId`, `turmaId`, `situacao` (`ativa` ou `encerrada`), `matriculadaEm`, `encerradaEm`, `createdAt` e `updatedAt`. As chaves estrangeiras usam as colunas `participante_id` e `turma_id`; a data de encerramento fica nula enquanto ativa.
+- Endpoints administrativos: `GET /admin/matriculas` (filtros opcionais `participanteId`, `turmaId`, `situacao`), `POST /admin/matriculas` (`participanteId`, `turmaId`) e `PATCH /admin/matriculas/:id/situacao` (`situacao`).
+- Frequência: `GET /chamadas/turmas` lista as turmas disponíveis para o usuário autenticado; `GET /chamadas?turmaId=ID&data=AAAA-MM-DD` carrega a chamada e as matrículas ativas; `PUT /chamadas` recebe `{ turmaId, dataAula, presencas: [{ matriculaId, situacao }] }`. Educadores só acessam turmas cujo educador cadastrado tem o mesmo e-mail da conta autenticada; administradores podem acessar todas. O servidor confere turma autorizada, data válida e a correspondência integral com as matrículas ativas de participantes aprovados e ativos.
+- Histórico de frequência (RF08): `GET /chamadas/participantes` lista participantes com matrícula nas turmas acessíveis; `GET /chamadas/historico?turmaId=ID` ou `?participanteId=ID` consulta o histórico, aceitando `de=AAAA-MM-DD` e `ate=AAAA-MM-DD` opcionais (inclusivos). Pode combinar turma e participante e deve informar ao menos um deles. A resposta inclui data, atividade, turma, participante, situação e totais. Educadores só consultam registros das próprias turmas; administradores consultam todas as turmas. A tela **Histórico de frequência** fica na área da equipe.
+- O histórico consulta somente presenças associadas a chamadas e limita a consulta por turma/participante, autorização e intervalo de datas no banco; não carrega todas as chamadas da ONG. Os totais contam marcações `presente` e `ausente` existentes no resultado filtrado. Chamadas ainda não salvas não aparecem e não são computadas como faltas; portanto os totais descrevem apenas registros já gravados, não um fechamento oficial de frequência. Consultar não altera chamadas nem presenças. Intervalos devem usar `AAAA-MM-DD`, com data inicial anterior ou igual à final.
+- Uma chamada por turma e data: a restrição única no banco impede duplicidade mesmo em gravações simultâneas. `PUT` cria quando não existe e atualiza a chamada existente quando a pessoa tem permissão para aquela turma; em duplicidade concorrente retorna HTTP 409 para recarregar e editar o registro existente. A atualização substitui as marcações em uma transação.
+- A frequência registra somente `presente` ou `ausente`; não foi incluída outra situação. A tela só exibe confirmação de gravação depois de resposta de sucesso do backend e limpa a chamada carregada se o salvamento falhar.
 - O service do backend usa `NodePort` para facilitar o acesso com `minikube service backend-service`.
 - O backend usa `mysql-service` como host no Kubernetes, conforme exigido.
 
@@ -234,3 +248,122 @@ No emulador Android, o app usa `10.0.2.2:3001`; no navegador e no simulador iOS,
 - [backend/models/usuario.js](C:/Users/vitoo/OneDrive/Área%20de%20Trabalho/TESTE/novoapp/backend/models/usuario.js)
 - [backend/models/participante.js](C:/Users/vitoo/OneDrive/Área%20de%20Trabalho/TESTE/novoapp/backend/models/participante.js)
 - [setup.ps1](C:/Users/vitoo/OneDrive/Área%20de%20Trabalho/TESTE/novoapp/setup.ps1)
+
+## Validação com a equipe da ONG
+
+Este roteiro prepara uma validação local. Não representa aprovação da ONG nem publicação/implantação. Os comandos de Kubernetes e GitHub acima são referências existentes; não os execute como parte da validação sem antes substituir os placeholders e confirmar o ambiente de destino.
+
+### Ambiente local reproduzível (Windows/PowerShell)
+
+Pré-requisitos: Node.js 20 ou superior (o CI usa Node 22), npm, Docker Desktop em execução e Expo Go ou um emulador instalado. O MySQL deste roteiro roda em container local; não é necessário Minikube para validar o app.
+
+1. Na raiz `novoapp`, instale dependências travadas pelo lockfile:
+
+   ```powershell
+   npm ci
+   Push-Location .\backend
+   npm ci
+   Pop-Location
+   ```
+
+2. Inicie um banco descartável de desenvolvimento. A senha abaixo é apenas um valor local de exemplo; não a reutilize fora desta máquina. O volume nomeado preserva o banco entre reinícios. Para reiniciar uma instância já criada: `docker start novoapp-mysql`.
+
+   ```powershell
+   docker run --name novoapp-mysql -e MYSQL_ROOT_PASSWORD=local-only-change-me -e MYSQL_DATABASE=cadastrodb -p 3306:3306 -v novoapp-mysql-data:/var/lib/mysql -d mysql:8.0
+   ```
+
+   Aguarde o MySQL aceitar conexões:
+
+   ```powershell
+   do { Start-Sleep -Seconds 2; docker exec novoapp-mysql mysqladmin ping -h 127.0.0.1 --silent } until ($LASTEXITCODE -eq 0)
+   ```
+
+3. Crie a configuração local ignorada pelo Git:
+
+   ```powershell
+   Copy-Item .\backend\.env.example .\backend\.env
+   ```
+
+   Edite `backend/.env`, ajuste `DB_PASSWORD` para o valor local usado acima e substitua `JWT_SECRET` por um valor aleatório local de pelo menos 32 caracteres. Para gerar um segredo no PowerShell sem fixá-lo no projeto:
+
+   ```powershell
+   $bytes = New-Object byte[] 48
+   [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+   [Convert]::ToBase64String($bytes)
+   ```
+
+   Cole o resultado somente no `backend/.env` local. Não o compartilhe nem o comite. O exemplo já inclui as chaves obrigatórias `PORT`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` e `JWT_SECRET`.
+
+4. Em um PowerShell, inicie a API:
+
+   ```powershell
+   Push-Location .\backend
+   npm start
+   ```
+
+   Aguarde a mensagem de conexão ao MySQL e consulte `http://localhost:3001/health`; deve responder HTTP 200. Mantenha essa janela aberta.
+
+5. Em outro PowerShell na raiz, inicie o Expo:
+
+   ```powershell
+   npx expo start
+   ```
+
+   Use `a` para abrir no emulador Android, `i` no simulador iOS em macOS, ou leia o QR code com Expo Go. Se alterar `EXPO_PUBLIC_API_URL`, reinicie o Expo com `npx expo start --clear` para incorporar a variável.
+
+6. Para criar o primeiro usuário administrador de validação, use o procedimento **Primeiro administrador** acima, na mesma janela/configuração do backend e com valores de teste fornecidos pela equipe. A API não cria credenciais iniciais automaticamente. Não cadastre dados pessoais reais sem autorização e combinação prévia sobre ambiente, retenção e descarte.
+
+Para encerrar, pare API/Expo com Ctrl+C. O banco pode ser parado com `docker stop novoapp-mysql`. Não remova o volume se precisar preservar dados de validação; qualquer limpeza de dados deve ser combinada com a equipe.
+
+### Endereço da API no app
+
+`app/services/api.ts` usa `EXPO_PUBLIC_API_URL` quando definida; sem ela usa `http://10.0.2.2:3001` no Android e `http://localhost:3001` nas demais plataformas. O override é uma variável pública embutida no bundle do app: nunca coloque segredos nela.
+
+- **Emulador Android padrão:** deixe a variável ausente; `10.0.2.2` aponta para o computador hospedeiro.
+- **Simulador iOS:** deixe ausente; `localhost` aponta para o computador do simulador.
+- **Celular físico com Expo Go:** crie um arquivo `.env` na raiz (não `backend/.env`) com `EXPO_PUBLIC_API_URL=http://IP-LAN-DO-COMPUTADOR:3001`, por exemplo `http://192.168.0.10:3001`. Use o IP atual do computador na mesma rede Wi-Fi; permita conexões de entrada na porta 3001 no firewall. O servidor precisa estar acessível pela rede local.
+- **Web em dispositivo/navegador:** além de apontar para um host alcançável, o backend atualmente permite CORS apenas para origens localhost/127.0.0.1. Um host web diferente exige uma política CORS explícita para origens aprovadas.
+
+O endereço HTTP e os defaults são para desenvolvimento local. Uma publicação requer endereço HTTPS e configuração de acesso aprovada; nenhum endpoint de produção foi fornecido ou configurado nesta revisão.
+
+### Roteiro de fluxos para validação
+
+Para o passo a passo detalhado, incluindo preparação dos registros de teste e resultados esperados, consulte o [Guia de testes das implementações recentes](GUIA_TESTES_IMPLEMENTACOES.md).
+
+Use contas e registros fictícios combinados para o teste, em banco local isolado. Registre resultado, plataforma, papel da conta e passos para reproduzir falhas; não interprete dados criados como dados reais da ONG.
+
+1. **Login e sessão:** login de administrador e educador, perfil, saída, persistência do token em Android/iOS e comportamento no navegador; confirme bloqueio de rotas administrativas para educador.
+2. **Inscrição:** envio válido, validações de campos, requisitos de responsável para menor, confirmação e criação com status pendente; confira erros de rede/API.
+3. **Análise:** listar e filtrar pendentes, aprovar/recusar, editar dados e inativar participante; verificar permissões de papel.
+4. **Cadastros:** consultar/criar/editar/inativar atividades, salas e educadores; validar unicidade, erros de formulário e o que educadores podem consultar.
+5. **Turmas e matrícula:** relacionar somente cadastros ativos, criar/editar/inativar turma; matricular participante aprovado/ativo, impedir duplicidade ativa, encerrar e consultar matrícula.
+6. **Chamada:** selecionar turma/data, carregar matrículas elegíveis, marcar presente/ausente, salvar, reabrir/editar a mesma chamada e verificar restrições do educador às próprias turmas.
+7. **Histórico:** consultar por turma e participante, aplicar datas inclusivas, conferir registros/totais, autorização do educador e mensagem de período sem chamada salva.
+
+### Configuração de produção e segredos: revisão estática
+
+- `backend/.env` é ignorado pelo Git e não está listado como arquivo rastreado. O `.env.example` contém nomes de variáveis e placeholders, sem credenciais de produção. Não imprima nem copie valores do `.env` local para registros ou documentação.
+- `backend-secret.yaml` e `mysql-secret.yaml` contêm apenas strings `REPLACE_WITH_...`; são placeholders e não devem ser aplicados sem substituição local segura. Secrets Kubernetes em YAML não são, por si só, um cofre de segredos. Gere credenciais próprias fora do Git e use o mecanismo de segredos aprovado para o ambiente futuro.
+- O backend exige `JWT_SECRET` com pelo menos 32 caracteres e variáveis de conexão MySQL. O Deployment não define `NODE_ENV=production`; o app Expo não possui `eas.json`, perfis de build ou URL de API de produção nesta árvore. Não há domínio, TLS/ingress, pipeline de publicação móvel, política de backup/restore ou procedimento de migração formal configurados aqui.
+- `backend/Dockerfile` usa Node 20 Alpine e instala dependências; o manifest MySQL usa a tag `mysql:8.0`. Imagens, versões, atualização e armazenamento precisam de política para um ambiente publicado.
+- CORS está restrito a localhost/127.0.0.1; o endpoint público de inscrição é intencionalmente aberto e recebe dados pessoais. Antes de qualquer exposição externa, a ONG precisa revisar domínio, TLS, acesso, privacidade, retenção, backup, monitoramento e resposta a incidentes.
+- A inicialização chama `sequelize.sync()` sem migrações versionadas. A documentação do projeto registra alterações aditivas de schema; isso não substitui ensaio de migração e backup/restore antes de dados persistentes.
+
+Esta é uma leitura dos arquivos locais, não uma auditoria de segurança nem uma validação do ambiente remoto.
+
+### Decisões a confirmar com a ONG
+
+- Quais plataformas/dispositivos e versões serão usados na validação; quem fornece as contas fictícias e aprova os resultados.
+- Campos e regras do formulário, atividades oferecidas, elegibilidade, papéis e permissões, especialmente o que cada educador pode ver/editar.
+- Se chamada incompleta deve ser permitida e como interpretar faltas: hoje o histórico conta somente marcações salvas e não considera aula sem chamada como ausência.
+- Se `presente`/`ausente`, uma chamada por turma/data, encerramento/reativação de matrícula e filtros atuais correspondem ao processo da equipe.
+- Ambiente futuro de publicação, domínio/HTTPS, provedor, responsáveis por segredos, backup, retenção/exclusão de dados pessoais, suporte e processo de atualização. Nenhuma dessas escolhas foi fornecida ou aprovada.
+
+### Verificações locais executadas
+
+Executadas nesta cópia em 15/11/2026; são verificações estáticas e não substituem o roteiro funcional com a ONG:
+
+- `npm run lint` — passou sem erros; reportou 7 avisos ESLint (imports duplicados, expressão sem efeito, dependências de hooks e variáveis não usadas).
+- `npx tsc --noEmit` — passou, sem erros.
+- `node --check` em todos os arquivos `.js` do backend fora de `node_modules` — passou, sem erros de sintaxe.
+- Não há script de testes automatizados nos `package.json`; não foram executados testes de integração/fluxos com banco. Não houve publicação nem implantação.

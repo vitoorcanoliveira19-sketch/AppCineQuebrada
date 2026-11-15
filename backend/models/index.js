@@ -4,6 +4,9 @@ const Atividade = require("./atividade");
 const Sala = require("./sala");
 const Educador = require("./educador");
 const Turma = require("./turma");
+const Matricula = require("./matricula");
+const Chamada = require("./chamada");
+const Presenca = require("./presenca");
 const { sequelize } = require("../config/database");
 
 Atividade.hasMany(Turma, { foreignKey: { name: "atividadeId", field: "atividade_id", allowNull: false }, onDelete: "RESTRICT" });
@@ -12,6 +15,16 @@ Educador.hasMany(Turma, { foreignKey: { name: "educadorId", field: "educador_id"
 Turma.belongsTo(Educador, { as: "educador", foreignKey: { name: "educadorId", field: "educador_id", allowNull: false } });
 Sala.hasMany(Turma, { foreignKey: { name: "salaId", field: "sala_id", allowNull: false }, onDelete: "RESTRICT" });
 Turma.belongsTo(Sala, { as: "sala", foreignKey: { name: "salaId", field: "sala_id", allowNull: false } });
+Participante.hasMany(Matricula, { as: "matriculas", foreignKey: { name: "participanteId", field: "participante_id", allowNull: false }, onDelete: "RESTRICT" });
+Matricula.belongsTo(Participante, { as: "participante", foreignKey: { name: "participanteId", field: "participante_id", allowNull: false } });
+Turma.hasMany(Matricula, { as: "matriculas", foreignKey: { name: "turmaId", field: "turma_id", allowNull: false }, onDelete: "RESTRICT" });
+Matricula.belongsTo(Turma, { as: "turma", foreignKey: { name: "turmaId", field: "turma_id", allowNull: false } });
+Turma.hasMany(Chamada, { as: "chamadas", foreignKey: { name: "turmaId", field: "turma_id", allowNull: false }, onDelete: "RESTRICT" });
+Chamada.belongsTo(Turma, { as: "turma", foreignKey: { name: "turmaId", field: "turma_id", allowNull: false } });
+Chamada.hasMany(Presenca, { as: "presencas", foreignKey: { name: "chamadaId", field: "chamada_id", allowNull: false }, onDelete: "CASCADE" });
+Presenca.belongsTo(Chamada, { as: "chamada", foreignKey: { name: "chamadaId", field: "chamada_id", allowNull: false } });
+Matricula.hasMany(Presenca, { as: "presencas", foreignKey: { name: "matriculaId", field: "matricula_id", allowNull: false }, onDelete: "RESTRICT" });
+Presenca.belongsTo(Matricula, { as: "matricula", foreignKey: { name: "matriculaId", field: "matricula_id", allowNull: false } });
 
 const syncDatabase = async () => {
   await sequelize.sync();
@@ -36,5 +49,8 @@ module.exports = {
   Sala,
   Educador,
   Turma,
+  Matricula,
+  Chamada,
+  Presenca,
   syncDatabase,
 };

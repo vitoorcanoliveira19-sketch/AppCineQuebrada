@@ -3,6 +3,10 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
+for (const chave of ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST"]) {
+  if (!process.env[chave]) throw new Error(`Variável obrigatória ausente: ${chave}`);
+}
+
 const sequelize = new Sequelize(
   process.env.DB_NAME,
   process.env.DB_USER,
@@ -25,9 +29,7 @@ const connectWithRetry = async (retries = 10, delayInMs = 5000) => {
       console.log("Conexao com MySQL estabelecida com sucesso.");
       return;
     } catch (error) {
-      console.error(
-        `Tentativa ${attempt}/${retries} de conexao com MySQL falhou: ${error.message}`
-      );
+      console.error(`Tentativa ${attempt}/${retries} de conexao com MySQL falhou: ${error.name || "Erro"}`);
 
       if (attempt === retries) {
         throw error;

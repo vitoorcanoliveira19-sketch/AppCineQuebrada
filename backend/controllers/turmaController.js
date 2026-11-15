@@ -1,5 +1,5 @@
 const { validationResult } = require("express-validator");
-const { Turma, Atividade, Educador, Sala } = require("../models");
+const { Turma, Atividade, Educador, Sala, Usuario } = require("../models");
 
 const includes = [
   { model: Atividade, as: "atividade", attributes: ["id", "nome"] },
@@ -12,6 +12,13 @@ const erroValidacao = (req, res) => {
   res.status(400).json({ sucesso: false, mensagem: "Confira os campos informados.", erros: erros.array().map(({ path, msg }) => ({ campo: path, mensagem: msg })) });
   return true;
 };
+async function escopoEducador(req) {
+  if (req.usuario.papel !== "educador") return {};
+  const usuario = await Usuario.findByPk(req.usuario.sub, { attributes: ["email"] });
+  if (!usuario) return { id: -1 };
+  const educador = await Educador.findOne({ where: { email: usuario.email, ativo: true }, attributes: ["id"] });
+  return educador ? { educadorId: educador.id } : { id: -1 };
+}
 async function validarVinculos(dados) {
   for (const [campo, model, ativo] of [["atividadeId", Atividade, "ativa"], ["educadorId", Educador, "ativo"], ["salaId", Sala, "ativa"]]) {
     if (dados[campo] === undefined) continue;
@@ -22,11 +29,11 @@ async function validarVinculos(dados) {
   return null;
 }
 async function listar(req, res, next) {
-  try { const dados = await Turma.findAll({ include: includes, order: [["nome", "ASC"]] }); return res.json({ sucesso: true, dados }); }
+  try { const where = await escopoEducador(req); const dados = await Turma.findAll({ where, include: includes, order: [["nome", "ASC"]] }); return res.json({ sucesso: true, dados }); }
   catch (error) { return next(error); }
 }
 async function consultar(req, res, next) {
-  try { const dados = await Turma.findByPk(req.params.id, { include: includes }); if (!dados) return res.status(404).json({ sucesso: false, mensagem: "Turma não encontrada." }); return res.json({ sucesso: true, dados }); }
+  try { const where = await escopoEducador(req); const dados = await Turma.findOne({ where: { id: req.params.id, ...where }, include: includes }); if (!dados) return res.status(404).json({ sucesso: false, mensagem: "Turma não encontrada." }); return res.json({ sucesso: true, dados }); }
   catch (error) { return next(error); }
 }
 async function criar(req, res, next) {

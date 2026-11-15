@@ -1,0 +1,11 @@
+const express = require("express");
+const { autenticar, permitirPapeis } = require("../middlewares/auth");
+const controller = require("../controllers/chamadaController");
+const router = express.Router();
+router.use("/chamadas", autenticar, permitirPapeis("administrador", "educador"));
+router.get("/chamadas/turmas", controller.listarTurmas);
+router.get("/chamadas/participantes", controller.listarParticipantes);
+router.get("/chamadas/historico", controller.historico);
+router.get("/chamadas", controller.carregar);
+router.put("/chamadas", controller.salvar);
+module.exports = router;

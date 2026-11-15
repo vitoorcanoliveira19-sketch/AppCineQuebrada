@@ -17,14 +17,16 @@ const configuracao = (req) => recursos[req.params.recurso];
 async function listar(req, res, next) {
   try {
     const { model } = configuracao(req);
-    const dados = await model.findAll({ order: [["nome", "ASC"]] });
+    const atributos = req.usuario.papel === "educador" && req.params.recurso === "educadores" ? ["id", "nome", "ativo"] : undefined;
+    const dados = await model.findAll({ ...(atributos ? { attributes: atributos } : {}), order: [["nome", "ASC"]] });
     return res.json({ sucesso: true, dados });
   } catch (error) { return next(error); }
 }
 async function consultar(req, res, next) {
   try {
     const { model } = configuracao(req);
-    const dado = await model.findByPk(req.params.id);
+    const atributos = req.usuario.papel === "educador" && req.params.recurso === "educadores" ? ["id", "nome", "ativo"] : undefined;
+    const dado = await model.findByPk(req.params.id, atributos ? { attributes: atributos } : {});
     if (!dado) return res.status(404).json({ sucesso: false, mensagem: "Cadastro não encontrado." });
     return res.json({ sucesso: true, dados: dado });
   } catch (error) { return next(error); }

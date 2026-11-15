@@ -69,6 +69,9 @@ export default function EquipeScreen() {
   return <SafeAreaView style={styles.page}><View style={styles.header}><View><Text style={styles.brand}>ÁREA DA EQUIPE</Text><Text style={styles.title}>{usuario?.nome}</Text><Text style={styles.role}>Administrador</Text></View><TouchableOpacity onPress={sair}><Text style={styles.logout}>Sair</Text></TouchableOpacity></View>
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-cadastros')}><Text style={styles.adminButtonText}>Gerenciar atividades, salas e educadores</Text></TouchableOpacity>
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-turmas')}><Text style={styles.adminButtonText}>Gerenciar turmas</Text></TouchableOpacity>
+    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-matriculas')}><Text style={styles.adminButtonText}>Gerenciar matrículas</Text></TouchableOpacity>
+    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/chamadas')}><Text style={styles.adminButtonText}>Registrar chamada e frequência</Text></TouchableOpacity>
+    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/historico-frequencia')}><Text style={styles.adminButtonText}>Consultar histórico de frequência</Text></TouchableOpacity>
     <ScrollView contentContainerStyle={styles.list}>{!!erro && <Text style={styles.error}>{erro}</Text>}
       <Text style={styles.section}>Inscrições e participantes</Text>
       <Text style={styles.label}>Status</Text><View style={styles.picker}><Picker selectedValue={status} onValueChange={(v) => { setStatus(v); setPagina(1); }} dropdownIconColor="#fff" style={styles.pickerText}><Picker.Item label="Pendentes" value="pendente" /><Picker.Item label="Aprovados" value="aprovado" /><Picker.Item label="Recusados" value="recusado" /><Picker.Item label="Todos" value="todos" /></Picker></View>

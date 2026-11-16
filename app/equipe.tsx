@@ -31,7 +31,12 @@ export default function EquipeScreen() {
     try {
       const me = await requisicaoInterna('/auth/me', saved) as { usuario: UsuarioInterno };
       setUsuario(me.usuario);
-      if (me.usuario.papel !== 'administrador') { router.replace('/login'); return; }
+      if (me.usuario.papel !== 'administrador') {
+        setInscricoes([]);
+        setPaginas(1);
+        setErro('');
+        return;
+      }
       const query = new URLSearchParams({ status, page: String(p), limit: '20' });
       if (nome.trim()) query.set('nome', nome.trim());
       if (atividade) query.set('atividade', atividade);
@@ -66,13 +71,16 @@ export default function EquipeScreen() {
   async function sair() { await apagarToken(); router.replace('/login'); }
 
   if (carregando) return <SafeAreaView style={styles.page}><ActivityIndicator color="#e8bd39" /></SafeAreaView>;
-  return <SafeAreaView style={styles.page}><View style={styles.header}><View><Text style={styles.brand}>ÁREA DA EQUIPE</Text><Text style={styles.title}>{usuario?.nome}</Text><Text style={styles.role}>Administrador</Text></View><TouchableOpacity onPress={sair}><Text style={styles.logout}>Sair</Text></TouchableOpacity></View>
-    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-cadastros')}><Text style={styles.adminButtonText}>Gerenciar atividades, salas e educadores</Text></TouchableOpacity>
-    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-turmas')}><Text style={styles.adminButtonText}>Gerenciar turmas</Text></TouchableOpacity>
-    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-matriculas')}><Text style={styles.adminButtonText}>Gerenciar matrículas</Text></TouchableOpacity>
+  return <SafeAreaView style={styles.page}><View style={styles.header}><View><Text style={styles.brand}>ÁREA DA EQUIPE</Text><Text style={styles.title}>{usuario?.nome}</Text><Text style={styles.role}>{usuario?.papel === 'administrador' ? 'Administrador' : 'Educador'}</Text></View><TouchableOpacity onPress={sair}><Text style={styles.logout}>Sair</Text></TouchableOpacity></View>
+    {usuario?.papel === 'administrador' && <>
+      <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-cadastros')}><Text style={styles.adminButtonText}>Gerenciar atividades, salas e educadores</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-turmas')}><Text style={styles.adminButtonText}>Gerenciar turmas</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-matriculas')}><Text style={styles.adminButtonText}>Gerenciar matrículas</Text></TouchableOpacity>
+    </>}
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/chamadas')}><Text style={styles.adminButtonText}>Registrar chamada e frequência</Text></TouchableOpacity>
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/historico-frequencia')}><Text style={styles.adminButtonText}>Consultar histórico de frequência</Text></TouchableOpacity>
     <ScrollView contentContainerStyle={styles.list}>{!!erro && <Text style={styles.error}>{erro}</Text>}
+      {usuario?.papel === 'administrador' ? <>
       <Text style={styles.section}>Inscrições e participantes</Text>
       <Text style={styles.label}>Status</Text><View style={styles.picker}><Picker selectedValue={status} onValueChange={(v) => { setStatus(v); setPagina(1); }} dropdownIconColor="#fff" style={styles.pickerText}><Picker.Item label="Pendentes" value="pendente" /><Picker.Item label="Aprovados" value="aprovado" /><Picker.Item label="Recusados" value="recusado" /><Picker.Item label="Todos" value="todos" /></Picker></View>
       <TextInput value={nome} onChangeText={setNome} placeholder="Filtrar por nome" placeholderTextColor="#aaa" style={styles.input} />
@@ -83,6 +91,7 @@ export default function EquipeScreen() {
         {item.status === 'aprovado' && item.ativo && <><TouchableOpacity style={styles.action} onPress={() => { setEditando(editando === item.id ? null : item.id); setNomeEdicao(item.nome); setEmailEdicao(item.email); setCelularEdicao(item.celular || ''); setAtividadeEdicao(item.atividadeInteresse); }}><Text style={styles.actionText}>Editar participante</Text></TouchableOpacity><TouchableOpacity style={styles.action} onPress={() => inativar(item)}><Text style={styles.actionText}>Inativar</Text></TouchableOpacity>{editando === item.id && <View><TextInput value={nomeEdicao} onChangeText={setNomeEdicao} placeholder="Nome" placeholderTextColor="#aaa" style={styles.input}/><TextInput value={emailEdicao} onChangeText={setEmailEdicao} placeholder="Email" placeholderTextColor="#aaa" style={styles.input} keyboardType="email-address" autoCapitalize="none"/><TextInput value={celularEdicao} onChangeText={setCelularEdicao} placeholder="Celular" placeholderTextColor="#aaa" style={styles.input} keyboardType="phone-pad"/><View style={styles.picker}><Picker selectedValue={atividadeEdicao} onValueChange={setAtividadeEdicao} dropdownIconColor="#fff" style={styles.pickerText}>{atividades.map((a) => <Picker.Item key={a} label={a} value={a} />)}</Picker></View><TouchableOpacity style={styles.filterButton} onPress={() => salvarEdicao(item)}><Text style={styles.adminButtonText}>Salvar</Text></TouchableOpacity></View>}</>}
       </View>)}
       <View style={styles.actions}><TouchableOpacity disabled={pagina <= 1} style={styles.action} onPress={() => setPagina(Math.max(1, pagina - 1))}><Text style={styles.actionText}>Anterior</Text></TouchableOpacity><Text style={styles.detail}>Página {pagina} de {paginas}</Text><TouchableOpacity disabled={pagina >= paginas} style={styles.action} onPress={() => setPagina(Math.min(paginas, pagina + 1))}><Text style={styles.actionText}>Próxima</Text></TouchableOpacity></View>
+      </> : <Text style={styles.detail}>Use os atalhos acima para registrar chamadas e consultar o histórico das suas turmas.</Text>}
     </ScrollView>
   </SafeAreaView>;
 }

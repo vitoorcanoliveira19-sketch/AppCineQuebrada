@@ -1,133 +1,138 @@
-# Guia de testes das implementações recentes
+# Guia rápido de testes
 
-Este roteiro valida manualmente os fluxos de inscrição e equipe, cadastros administrativos, turmas, matrículas e frequência no app Expo e na API. Use apenas uma base local isolada e registros fictícios. Não execute os cenários em produção.
+Use o banco local e somente dados fictícios. Esta preparação cria a conta de administrador no seu banco local. Você escolhe o email e a senha; o projeto não tem senha padrão.
 
-## 1. Preparar o ambiente
+## 1. Iniciar e preparar
 
-Siga a seção **Validação com a equipe da ONG → Ambiente local reproduzível (Windows/PowerShell)** do [README](README.md) para iniciar MySQL, configurar `backend/.env`, criar o primeiro administrador, iniciar o backend e abrir o Expo. O health check `http://localhost:3001/health` deve responder HTTP 200 antes de começar.
+Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na pasta errada, use os caminhos completos abaixo. Ao copiar comandos, copie somente as linhas dentro do bloco; não copie as linhas com três crases.
 
-Use dois usuários de teste:
+1. Instale as dependências (só precisa fazer na primeira vez):
 
-- **Administrador:** criado pelo procedimento de bootstrap.
-- **Educador:** criado pelo administrador em Cadastros ou pelo endpoint administrativo, com um email de teste.
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   npm ci
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   npm ci
+   ```
 
-Prepare uma segunda turma atribuída a outro educador para conferir isolamento de acesso. Use nomes e emails fictícios. O roteiro pressupõe também:
+   Os próximos comandos desta seção usam a pasta `backend`, exceto quando indicarem outra pasta.
 
-- uma atividade ativa e uma inativa;
-- uma sala ativa e uma inativa;
-- duas contas de educador ativas, cada uma vinculada a uma turma;
-- um participante fictício aprovado e ativo, e outro pendente;
-- uma turma ativa para cada educador.
+2. Inicie o MySQL local pelo Docker. Se o container `novoapp-mysql` já aparece como ativo no Docker Desktop, pule este comando. Se existe, mas está parado, execute `docker start novoapp-mysql`.
 
-Se começar sem esses registros, crie-os na ordem acima pelo app, usando o usuário administrador. Anote os IDs exibidos pela API ou pelo banco local quando for testar a API. O app deve continuar aberto na mesma rede e apontando para o backend local.
+   ```powershell
+   docker run --name novoapp-mysql -e MYSQL_ROOT_PASSWORD=local-only-change-me -e MYSQL_DATABASE=cadastrodb -p 3306:3306 -v novoapp-mysql-data:/var/lib/mysql -d mysql:8.0
+   ```
 
-## 2. Registrar os resultados
+   Espere o container ficar ativo. Para conferir, execute `docker exec novoapp-mysql mysqladmin ping -h 127.0.0.1 -uroot -plocal-only-change-me --silent`; deve aparecer `mysqld is alive`.
 
-Para cada cenário, anote **Passou**, **Falhou** ou **Não testado**, a plataforma (web, Android ou iOS), o papel usado e qualquer mensagem de erro. Um cenário passa quando o resultado observado corresponde ao esperado e os dados persistidos continuam corretos ao recarregar a tela.
+3. Configure o backend. Se ainda não existir, copie o arquivo de exemplo; depois abra o arquivo para edição:
 
-## 3. Login, sessão e permissões
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   if (!(Test-Path .env)) { Copy-Item .env.example .env }
+   notepad .env
+   ```
 
-1. Entre como administrador. Confirme que a tela de equipe mostra o papel correto e os atalhos para Cadastros, Turmas, Matrículas, Chamadas e Histórico.
-2. Saia e entre com senha incorreta. O app deve mostrar erro sem abrir a área da equipe.
-3. Entre como educador. Confirme acesso às telas permitidas de consulta, chamada e histórico; o acesso à administração de matrículas e às ações de edição administrativa deve ser bloqueado ou não oferecido.
-4. Saia e tente abrir uma rota interna sem sessão. O app deve retornar ao login.
-5. No Android/iOS, feche e reabra o app e confira a sessão conforme o comportamento da plataforma. Na web, confira que o token não persiste após fechar/recarregar a sessão do navegador.
-6. Como administrador, bloqueie/inative uma conta de teste ou altere seu papel; valide que um token antigo deixa de autorizar operações protegidas.
+   Em `backend/.env`, defina `DB_PASSWORD=local-only-change-me` e troque `JWT_SECRET` por uma frase aleatória com pelo menos 32 caracteres. Salve o arquivo. Ele é local e não deve ser compartilhado.
 
-**Esperado:** somente usuários autenticados acessam as rotas internas; somente administradores executam operações administrativas. Educadores não veem dados de contato de outros educadores.
+4. Inicie o backend em uma janela do PowerShell. Entre diretamente na pasta do backend:
 
-## 4. Inscrição pública e análise
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   npm start
+   ```
 
-1. Na tela pública, envie uma inscrição fictícia válida, incluindo responsável quando o participante for menor. Confirme a mensagem de sucesso.
-2. Tente enviar com campos obrigatórios vazios ou formatos inválidos. A interface deve apontar os erros e não criar inscrição duplicada por esse envio.
-3. Como administrador, localize o registro na lista de participantes pendentes. Confirme que a inscrição não cria matrícula automaticamente.
-4. Aprove uma inscrição. Confirme o estado atualizado após recarregar.
-5. Repita com outra inscrição e recuse-a; valide que os estados não se confundem.
-6. Edite dados de um participante de teste e inative-o. Confirme a persistência após sair da tela e retornar.
-7. Como educador, tente consultar/alterar a fila administrativa. A operação deve ser recusada pela interface ou pela API.
+   Deixe essa janela aberta. Espere a conexão com o banco e confirme que `http://localhost:3001/health` responde.
 
-**Esperado:** inscrição pública gera estado pendente; análise e alteração de participantes são restritas ao administrador; erros do servidor não expõem SQL ou detalhes internos.
+5. Crie seu login de administrador em **uma segunda janela do PowerShell**. Entre na pasta do backend antes dos comandos:
 
-## 5. Cadastros: atividades, salas e equipe
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   $env:ADMIN_NAME = Read-Host "Nome do administrador"
+   $env:ADMIN_EMAIL = Read-Host "Email para login"
+   $secure = Read-Host "Crie uma senha com pelo menos 12 caracteres" -AsSecureString
+   $env:ADMIN_PASSWORD = [Net.NetworkCredential]::new("", $secure).Password
+   npm run bootstrap-admin
+   Remove-Item Env:ADMIN_NAME, Env:ADMIN_EMAIL, Env:ADMIN_PASSWORD
+   ```
 
-Como administrador, em **Cadastros**:
+   Guarde o email e a senha que você digitou. A senha não é fornecida pelo projeto e não pode ser recuperada do banco. Se o comando disser que já existe administrador, use a conta criada anteriormente; o bootstrap não cria uma segunda conta.
 
-1. Crie uma atividade, uma sala e um educador de teste; confirme que aparecem na listagem.
-2. Edite nome/descrição/contato e confirme a alteração após recarregar.
-3. Tente criar atividade ou sala com nome repetido e educador com email repetido. A API deve rejeitar a duplicidade e a tela deve mostrar erro compreensível.
-4. Tente enviar nome ou campos obrigatórios inválidos; confirme validação e ausência de registro inválido.
-5. Inative uma atividade, uma sala e um educador; confirme o estado. Reative pelo controle disponível.
-6. Entre como educador e consulte a equipe. Confirme que vê apenas nomes/situação e não dados de contato privados; tente criar/editar/inativar cadastro e confirme a restrição.
+6. Em outra janela, na pasta `novoapp`, inicie o app:
 
-**Esperado:** nomes de atividades/salas e emails de educadores não se repetem; educador pode consultar conforme permitido, mas mutações administrativas são exclusivas do administrador.
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   npx expo start
+   ```
 
-## 6. Turmas
+   Pressione `w` para testar no navegador ou escaneie o QR code com Expo Go. No Android/iOS, os endereços padrão da API estão descritos no [README](README.md#endereco-da-api-no-app).
 
-Como administrador, em **Turmas**:
+## 2. Fazer login e preparar os dados
 
-1. Crie uma turma vinculando atividade, educador e sala ativos. Confirme que atividade, educador e sala aparecem corretamente na listagem.
-2. Tente criar turma sem nome, com vínculo inexistente ou com atividade/sala/educador inativo. O backend deve rejeitar e a lista não deve ganhar uma turma inválida.
-3. Edite nome e vínculos para outros registros ativos; confirme a persistência.
-4. Inative e reative uma turma. Confirme a situação na listagem.
-5. Como educador, consulte as turmas permitidas; tente criar, editar ou inativar turma e confirme que a API recusa.
+1. Na tela inicial do app, toque em **Equipe** na barra inferior, à direita. Na tela **Acesso da equipe**, informe o email e a senha escolhidos no passo 5 da preparação e toque em **Entrar**.
+2. Em **Cadastros**, crie dois registros de educador com emails fictícios diferentes, uma atividade ativa e uma sala ativa. Crie também uma atividade ou sala inativa para testar validações.
+3. Crie o usuário de acesso de um educador: o registro de educador em **Cadastros** não cria login. Em uma janela PowerShell na pasta `novoapp`, rode o bloco abaixo. Use o mesmo email do registro de educador e escolha uma senha de pelo menos 12 caracteres:
 
-**Esperado:** vínculos inválidos/inativos não são aceitos; relações existentes são exibidas com seus nomes; registros vinculados devem ser inativados em vez de apagados.
+   ```powershell
+   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   $adminEmail = Read-Host "Email do administrador"
+   $adminSecure = Read-Host "Senha do administrador" -AsSecureString
+   $adminPassword = [Net.NetworkCredential]::new("", $adminSecure).Password
+   $login = Invoke-RestMethod -Uri http://localhost:3001/auth/login -Method Post -ContentType "application/json" -Body (@{ email = $adminEmail; senha = $adminPassword } | ConvertTo-Json)
+   $educadorSenhaSecure = Read-Host "Crie uma senha para o educador (mínimo 12 caracteres)" -AsSecureString
+   $educadorSenha = [Net.NetworkCredential]::new("", $educadorSenhaSecure).Password
+   $cabecalho = @{ Authorization = "Bearer $($login.token)" }
+   Invoke-RestMethod -Uri http://localhost:3001/admin/educadores -Method Post -Headers $cabecalho -ContentType "application/json" -Body (@{ nome = "Educador Teste"; email = "educador@teste.local"; senha = $educadorSenha } | ConvertTo-Json)
+   Remove-Variable adminPassword, educadorSenha, cabecalho, login
+   ```
 
-## 7. Matrículas
+   Se aparecer `True` e um resultado com `papel=educador` e um `id`, a conta foi criada. Ignore eventual erro dizendo que crases não são reconhecidas: ele ocorre quando as crases do bloco são copiadas. Não rode o comando novamente para essa mesma conta.
 
-Como administrador, abra **Gerenciar matrículas**:
+   Troque `Educador Teste` e `educador@teste.local` pelos mesmos nome e email cadastrados. Guarde a senha do educador para o teste de login.
+   Para testar o isolamento entre duas contas de educador, repita o bloco com o nome, email e senha do segundo educador.
+4. Em **Turmas**, crie duas turmas ativas, uma para cada registro de educador. A tela só mostra atividades, educadores e salas ativos; os inativos devem ficar fora das opções.
+5. Para abrir a inscrição pública, volte para **Home**, toque em um ícone de atividade (por exemplo, **Capoeira**) e depois em **QUERO ME CADASTRAR!**. Envie duas inscrições fictícias; preencha todos os campos obrigatórios e aceite a política de privacidade. Na área da equipe, aprove uma e deixe a outra pendente.
 
-1. Matricule o participante aprovado e ativo em uma turma ativa. Confirme situação **ativa**, participante, turma e data.
-2. Tente matricular o mesmo participante novamente na mesma turma enquanto a matrícula está ativa. Deve ser recusado sem criar uma segunda matrícula ativa.
-3. Tente matricular participante pendente, recusado ou inativo, e tente selecionar turma inativa (se disponível). A API deve recusar a operação.
-4. Use os filtros por participante, turma e situação. Confirme que cada filtro limita a lista corretamente.
-5. Encerre a matrícula. Confirme situação **encerrada**, data de encerramento preenchida e preservação do registro.
-6. Crie novamente matrícula para o mesmo par participante/turma após o encerramento. Deve ser permitido como novo registro; confira que o histórico anterior permanece.
-7. Reative uma matrícula encerrada quando não houver outra ativa para o mesmo par. Depois tente reativar quando já houver uma matrícula ativa concorrente; a duplicidade deve ser recusada.
-8. Entre como educador e tente abrir/alterar matrículas. O acesso deve ser negado.
-
-**Esperado:** só participantes aprovados/ativos e turmas ativas são elegíveis; existe no máximo uma matrícula ativa por participante e turma; encerramento preserva histórico.
-
-## 8. Chamada e frequência
-
-1. Entre como administrador e abra **Registrar chamada e frequência**. Selecione uma turma ativa e uma data válida; carregue a chamada.
-2. Confirme que a lista contém as matrículas ativas elegíveis e não inclui participantes pendentes/inativos ou matrículas encerradas.
-3. Marque alguns participantes como presentes e outros como ausentes. Salve e confirme a mensagem de sucesso.
-4. Saia da tela, reabra a mesma turma/data e carregue novamente. As marcações devem ser iguais às salvas.
-5. Altere uma marcação e salve de novo. Deve atualizar a chamada existente, sem criar outra chamada para a mesma turma/data.
-6. Tente uma data inválida ou uma turma sem acesso. A tela deve mostrar erro, não confirmar o salvamento e não deixar dados antigos aparentarem uma gravação bem-sucedida.
-7. Entre como educador atribuído à turma. Confirme que pode registrar chamada nela. Tente consultar turma atribuída a outro educador; não deve carregar nem salvar a chamada.
-8. Como administrador, carregue a turma do outro educador e confirme acesso.
-
-**Esperado:** uma chamada por turma/data; gravação atualiza em vez de duplicar; só são aceitos estados presente/ausente e a chamada inteira corresponde às matrículas elegíveis atuais.
-
-## 9. Histórico de frequência
-
-1. Abra **Consultar histórico de frequência** como administrador. Consulte por turma e confira datas, atividade, turma, participante e situação.
-2. Consulte por participante e confirme que aparecem registros das turmas correspondentes.
-3. Defina intervalo de datas com chamada dentro do período. Confirme que datas inicial e final são inclusivas.
-4. Use intervalo sem registros. A tela deve indicar resultado vazio sem erro inesperado.
-5. Informe data inválida ou início posterior ao fim. A API deve rejeitar a consulta e a tela mostrar erro.
-6. Compare totais com registros filtrados: presença conta como presença, ausência como falta. Chamadas não salvas não aparecem e não contam como faltas.
-7. Como educador, consulte uma turma própria e depois tente turma/participante relacionado somente a turma de outro educador. Os dados de outra turma não devem ser retornados.
-8. Refaça uma consulta e confirme que ela não altera chamadas nem marcações.
-
-**Esperado:** filtro e autorização são aplicados no servidor; o histórico reflete apenas presenças efetivamente gravadas e os totais do resultado filtrado.
-
-## 10. Verificações da API e erros
-
-Opcionalmente, valide endpoints diretamente com PowerShell ou cliente HTTP. Exemplo para health check:
+Se esquecer a senha do educador, redefina-a numa janela PowerShell, usando o email da conta criada:
 
 ```powershell
-Invoke-RestMethod http://localhost:3001/health
+Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+$env:RESET_EMAIL = Read-Host "Email do educador"
+$secure = Read-Host "Nova senha (mínimo 12 caracteres)" -AsSecureString
+$env:RESET_PASSWORD = [Net.NetworkCredential]::new("", $secure).Password
+npm run reset-educator-password
+Remove-Item Env:RESET_EMAIL, Env:RESET_PASSWORD
 ```
 
-Para rotas protegidas, obtenha o token pelo `POST /auth/login` com usuário de teste e envie `Authorization: Bearer <token>`. Confira os códigos de resposta: sem token deve receber 401, papel insuficiente 403, registro inexistente 404, entrada inválida 400/422 (conforme a rota) e duplicidade 409 quando aplicável. Não cole tokens, senhas ou dados pessoais em capturas de tela, tickets ou logs compartilhados.
+Depois entre no app com esse email e a nova senha. O comando não cria uma segunda conta.
 
-Confira também que `/cadastro` legado não cria conta e que `POST /participantes` continua sendo a rota pública de inscrição. Mensagens de erro não devem incluir stack trace, query SQL, senha ou corpo completo da requisição.
+Agora você tem o mínimo para seguir o checklist abaixo. Use somente dados fictícios.
 
-## 11. Fechamento e registro de falhas
+Marque cada item: **☐ passou** ou **☐ falhou**.
 
-Ao terminar, pare Expo e backend com Ctrl+C. O banco local de validação pode ser parado com `docker stop novoapp-mysql`; preserve o volume se precisar dos dados para repetir os cenários. Não remova banco/volume sem combinar antes.
+## Checklist
 
-Para cada falha, registre tela ou endpoint, papel, plataforma, passos mínimos para reproduzir, resultado esperado e resultado observado. Remova ou oculte nomes, emails, telefones, tokens e outros dados identificáveis antes de compartilhar evidências.
+1. **Entrar e sair** — Faça login como administradora e depois como educadora. Saia e tente abrir uma tela interna sem login.
+   **Confira:** sem login não acessa; educadora não administra cadastros nem matrículas.
+
+2. **Inscrição** — Em **Home**, toque em uma atividade e em **QUERO ME CADASTRAR!**. Envie uma inscrição fictícia válida; depois tente enviar com campo obrigatório vazio.
+   **Confira:** inscrição válida fica pendente; formulário inválido mostra erro.
+
+3. **Cadastros** — Crie uma atividade, sala e educador. Tente repetir o nome da atividade ou o email do educador. Inative e reative um cadastro.
+   **Confira:** itens aparecem, duplicatas são recusadas e a situação atualiza.
+
+4. **Turmas** — Crie turma usando atividade, sala e educador ativos. Confira que os itens inativos não aparecem nas opções.
+   **Confira:** turma válida é criada; itens inativos não podem ser selecionados; educadora não edita a turma. A interface impede selecionar itens inativos, então não é preciso tentar forçar esse envio.
+
+5. **Matrículas** — Matricule o participante aprovado em turma ativa. Tente matriculá-lo de novo; depois encerre a matrícula e consulte a lista.
+   **Confira:** duplicata ativa é recusada; matrícula encerrada continua no histórico.
+
+6. **Chamada** — Como administradora, abra uma turma, escolha a data, marque presenças e faltas e salve. Reabra a mesma data e altere uma marcação.
+   **Confira:** dados salvos reaparecem; salvar de novo atualiza a chamada. Educadora só acessa a própria turma.
+
+7. **Histórico** — Consulte por turma e por participante. Aplique um intervalo de datas que inclua a chamada salva.
+   **Confira:** aparecem as marcações e totais corretos; educadora não vê turmas de outra pessoa.
+
+## Se algo falhar
+
+Anote o número do passo, o papel usado e a mensagem exibida. Não compartilhe senhas, tokens ou dados pessoais. Ao terminar, pare Expo e backend com **Ctrl+C**; preserve o banco local se for repetir os testes.

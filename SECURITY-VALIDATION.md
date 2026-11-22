@@ -1,12 +1,14 @@
 # Validação da atualização de segurança
 
-Base: `main` no commit `2fc7a84`. Branch de trabalho: `codex/security-phases-1-3`.
+Validação da integração de 22/11/2026.
+
+Base: `main` no commit `68c2816`. Branch de trabalho: `codex/security-phases-1-3`.
 
 | Verificação | Resultado local |
 | --- | --- |
 | Instalação reproduzível | `npm ci` passou na raiz e em backend |
-| Autorização, sessões, MFA, migração e limites | 21 testes de integração passaram com API real e MariaDB 11.4.9 descartável |
-| Cliente web/nativo de autenticação | 4 testes passaram |
+| Autorização, sessões, MFA, migração e limites | 23 testes de integração passaram com API real e MariaDB 11.4.9 descartável |
+| Cliente web/nativo de autenticação | 6 testes passaram |
 | Navegador | 7 fluxos passaram em Chromium, sem erros de execução |
 | Lint e TypeScript | Passaram |
 | Compatibilidade de pacotes Expo | `expo install --check` passou |

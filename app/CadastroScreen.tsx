@@ -2,7 +2,7 @@ import { Picker } from "@react-native-picker/picker";
 import CheckBox from "expo-checkbox";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { enviarInscricao } from "../services/api";
+import { enviarInscricao } from "@/services/api";
 import {
   Alert,
   Image,

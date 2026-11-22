@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '../services/auth';
+import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '@/services/auth';
 
 type Opcao = { id: number; nome: string; ativa?: boolean; ativo?: boolean };
 type Turma = { id: number; nome: string; atividadeId: number; educadorId: number; salaId: number; ativa: boolean; atividade: Opcao; educador: Opcao; sala: Opcao };

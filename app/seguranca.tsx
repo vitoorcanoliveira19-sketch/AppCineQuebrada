@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, PerfilSessao } from '../services/auth';
+import { apagarToken, lerToken, requisicaoInterna, PerfilSessao } from '@/services/auth';
 
 export default function SegurancaScreen() {
   const router = useRouter();

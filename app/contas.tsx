@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { lerToken, requisicaoInterna, PerfilSessao } from '../services/auth';
+import { lerToken, requisicaoInterna, PerfilSessao } from '@/services/auth';
 type Conta = { id: number; nome: string; email: string; papel: string; educador?: { nome: string } };
 type Educador = { id: number; nome: string; email: string; ativo: boolean };
 export default function ContasScreen() {

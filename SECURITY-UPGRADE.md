@@ -1,6 +1,6 @@
 # Segurança: etapas 1 a 3
 
-Base atualizada de `main`: `2fc7a84`. Estas mudanças implementam autorização, atualização de runtime/dependências e ciclo de vida das sessões. Também incluem limites de tentativas para login, MFA e inscrições.
+Base atualizada de `main`: `68c2816`. Estas mudanças implementam autorização, atualização de runtime/dependências e ciclo de vida das sessões. Também incluem limites de tentativas para login, MFA e inscrições.
 
 ## Atualização de uma instalação existente
 

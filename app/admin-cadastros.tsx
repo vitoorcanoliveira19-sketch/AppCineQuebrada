@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '../services/auth';
+import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '@/services/auth';
 
 type Tipo = 'atividades' | 'salas' | 'educadores';
 type Registro = { id: number; nome: string; descricao?: string | null; email?: string; contato?: string; ativa?: boolean; ativo?: boolean };

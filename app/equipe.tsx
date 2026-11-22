@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno, PerfilSessao } from '../services/auth';
+import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno, PerfilSessao } from '@/services/auth';
 
 type Inscricao = { id: number; nome: string; email: string; celular?: string; telefone?: string; dataNascimento?: string; atividadeInteresse: string; status: string; ativo: boolean; analisadoEm?: string };
 const atividades = ['Futebol', 'Karatê', 'Capoeira', 'Ballet', 'FitDance', 'Horta Orgânica', 'Reforço escolar', 'CineQuebrada'];

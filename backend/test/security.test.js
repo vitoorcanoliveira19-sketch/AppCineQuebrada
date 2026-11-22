@@ -348,3 +348,25 @@ test("administrator password recovery never removes the configured second factor
   assert.equal(login.status, 200); assert.equal(login.body.precisaMfa, true); assert.equal(login.body.configurarMfa, false);
   assert.equal((await request("/admin/participantes", { token: login.body.token })).status, 403);
 });
+
+test("validation seed stays idempotent and keeps existing records and canonical activities", async () => {
+  const { promisify } = require("node:util");
+  const run = promisify(require("node:child_process").execFile);
+  const options = { cwd: require("node:path").resolve(__dirname, ".."), env: { ...process.env } };
+  const before = { participantes: await models.Participante.count(), educadores: await models.Educador.count() };
+  await run(process.execPath, ["scripts/seed-validation.js"], options);
+  await run(process.execPath, ["scripts/seed-validation.js"], options);
+  assert.equal(await models.Participante.count(), before.participantes + 12);
+  assert.equal(await models.Educador.count(), before.educadores + 3);
+  assert.ok(await models.Participante.findByPk(fixture.p1.id));
+  const samples = await models.Participante.findAll({ where: { email: { [require("sequelize").Op.like]: "%@alunos.validacao.example" } } });
+  assert.ok(samples.every(sample => ["Capoeira", "FitDance", "Ballet", "Horta Orgânica", "CineQuebrada"].includes(sample.atividadeInteresse)));
+});
+test("validation seed refuses production before writing any data", async () => {
+  const before = await models.Participante.count();
+  const run = require("node:util").promisify(require("node:child_process").execFile);
+  await assert.rejects(run(process.execPath, ["scripts/seed-validation.js"], {
+    cwd: require("node:path").resolve(__dirname, ".."), env: { ...process.env, NODE_ENV: "production" },
+  }), error => error.code === 1 && error.stderr.includes("desativada em produção"));
+  assert.equal(await models.Participante.count(), before);
+});

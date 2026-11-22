@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { API_URL } from './services/api';
-import { guardarToken, lerToken, requisicaoInterna, UsuarioInterno } from './services/auth';
+import { API_URL } from '@/services/api';
+import { guardarToken, lerToken, requisicaoInterna, UsuarioInterno } from '@/services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();

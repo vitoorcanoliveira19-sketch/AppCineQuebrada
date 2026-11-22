@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     navItem: { paddingHorizontal: 5, },
     navText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14, },
     staticArea: { width: '100%', height: 300, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)', },
-    staticBackgroundIcon: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.7, },
+    staticBackgroundIcon: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, width: '100%', height: '100%', opacity: 0.7, },
     highlightText: { color: '#FFFFFF', fontSize: 40, fontWeight: '900', zIndex: 10, },
     iconSectionContainer: { flexDirection: 'row', justifyContent: 'space-around', flexWrap: 'wrap', paddingVertical: 20, borderTopWidth: 1, borderTopColor: '#333333', },
     iconWrapper: { alignItems: 'center', width: width / 5, paddingHorizontal: 5 },

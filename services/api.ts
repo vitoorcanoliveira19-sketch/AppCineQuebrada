@@ -3,7 +3,11 @@ import { Platform } from 'react-native';
 // Para um celular físico na mesma rede, configure EXPO_PUBLIC_API_URL no .env do Expo
 // com o endereço LAN do computador (por exemplo http://192.168.0.10:3001).
 const host = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${host}:3001`;
+const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, '');
+if (!__DEV__ && (!configuredUrl || !configuredUrl.startsWith('https://'))) {
+  throw new Error('Configure EXPO_PUBLIC_API_URL com a URL HTTPS da API para publicar o aplicativo.');
+}
+export const API_URL = configuredUrl || `http://${host}:3001`;
 
 export async function enviarInscricao(dados: Record<string, string>) {
   try {

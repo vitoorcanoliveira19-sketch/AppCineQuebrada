@@ -1,21 +1,11 @@
 const { UniqueConstraintError } = require("sequelize");
 const { Op } = require("sequelize");
-const { Chamada, Presenca, Matricula, Participante, Turma, Atividade, Educador, Usuario, sequelize } = require("../models");
+const { Chamada, Presenca, Matricula, Participante, Turma, Atividade, Educador, sequelize } = require("../models");
 
 const formatoData = (value) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 const includeTurma = [{ model: Atividade, as: "atividade", attributes: ["id", "nome"] }, { model: Educador, as: "educador", attributes: ["id", "nome", "email"] }];
 
-async function turmasPermitidas(req) {
-  const where = {};
-  if (req.usuario.papel === "educador") {
-    const usuario = await Usuario.findByPk(req.usuario.sub, { attributes: ["email"] });
-    if (!usuario) return { id: -1 };
-    const educador = await Educador.findOne({ where: { email: usuario.email, ativo: true } });
-    if (!educador) return { id: -1 };
-    where.educadorId = educador.id;
-  }
-  return where;
-}
+const { escopoEducador: turmasPermitidas } = require("../services/educatorScope");
 
 async function listarTurmas(req, res, next) {
   try {
@@ -50,12 +40,10 @@ async function historico(req, res, next) {
       return res.status(400).json({ sucesso: false, mensagem: "Informe participante ou turma e um intervalo de datas válido (AAAA-MM-DD)." });
     }
     const permitidas = await turmasPermitidas(req);
-    const turmaWhere = { ...permitidas };
-    if (turmaId) turmaWhere.id = turmaId;
+    const turmaWhere = { [Op.and]: [permitidas, ...(turmaId ? [{ id: turmaId }] : [])] };
     const chamadaWhere = {};
     if (de || ate) chamadaWhere.dataAula = { ...(de ? { [Op.gte]: de } : {}), ...(ate ? { [Op.lte]: ate } : {}) };
     const presencaWhere = {};
-    if (participanteId) presencaWhere.participanteId = participanteId;
     const dados = await Presenca.findAll({
       attributes: ["id", "situacao"], where: presencaWhere,
       include: [
@@ -75,7 +63,7 @@ async function carregar(req, res, next) {
     const dataAula = req.query.data;
     if (!Number.isInteger(turmaId) || turmaId < 1 || !formatoData(dataAula)) return res.status(400).json({ sucesso: false, mensagem: "Informe uma turma e uma data válidas (AAAA-MM-DD)." });
     const permitidas = await turmasPermitidas(req);
-    const turma = await Turma.findOne({ where: { id: turmaId, ...permitidas }, include: includeTurma });
+    const turma = await Turma.findOne({ where: { [Op.and]: [permitidas, { id: turmaId }] }, include: includeTurma });
     if (!turma) return res.status(404).json({ sucesso: false, mensagem: "Turma não encontrada ou sem permissão de acesso." });
     const chamada = await Chamada.findOne({ where: { turmaId, dataAula }, include: [{ model: Presenca, as: "presencas", include: [{ model: Matricula, as: "matricula", attributes: ["id", "participanteId", "situacao"], include: [{ model: Participante, as: "participante", attributes: ["id", "nome"] }] }] }] });
     const matriculas = await Matricula.findAll({ where: { turmaId, situacao: "ativa" }, include: [{ model: Participante, as: "participante", attributes: ["id", "nome", "ativo", "status"], where: { ativo: true, status: "aprovado" } }], order: [[{ model: Participante, as: "participante" }, "nome", "ASC"]] });
@@ -89,10 +77,11 @@ async function salvar(req, res, next) {
   if (!Number.isInteger(turmaId) || turmaId < 1 || !formatoData(dataAula) || !Array.isArray(presencas) || presencas.some(p => !p || !Number.isInteger(p.matriculaId) || p.matriculaId < 1 || !["presente", "ausente"].includes(p.situacao)) || new Set(presencas.map(p => p.matriculaId)).size !== presencas.length) {
     return res.status(400).json({ sucesso: false, mensagem: "Informe turma, data e uma situação válida (presente ou ausente) para cada matrícula, sem repetições." });
   }
-  const transaction = await sequelize.transaction();
+  let transaction;
   try {
+    transaction = await sequelize.transaction();
     const permitidas = await turmasPermitidas(req);
-    const turma = await Turma.findOne({ where: { id: turmaId, ...permitidas }, transaction });
+    const turma = await Turma.findOne({ where: { [Op.and]: [permitidas, { id: turmaId }] }, transaction });
     if (!turma) { await transaction.rollback(); return res.status(404).json({ sucesso: false, mensagem: "Turma não encontrada ou sem permissão de acesso." }); }
     const ativas = await Matricula.findAll({ where: { turmaId, situacao: "ativa" }, include: [{ model: Participante, as: "participante", attributes: ["id"], where: { ativo: true, status: "aprovado" } }], transaction });
     const esperadas = new Set(ativas.map(m => m.id));
@@ -108,7 +97,7 @@ async function salvar(req, res, next) {
     await transaction.commit();
     return res.status(criando ? 201 : 200).json({ sucesso: true, mensagem: criando ? "Chamada registrada com sucesso." : "Chamada atualizada com sucesso.", dados: { id: chamada.id, turmaId, dataAula } });
   } catch (error) {
-    if (!transaction.finished) await transaction.rollback();
+    if (transaction && !transaction.finished) await transaction.rollback();
     if (error instanceof UniqueConstraintError || error.name === "SequelizeUniqueConstraintError") return res.status(409).json({ sucesso: false, mensagem: "Já existe uma chamada para esta turma e data. Recarregue o registro para editá-lo." });
     return next(error);
   }

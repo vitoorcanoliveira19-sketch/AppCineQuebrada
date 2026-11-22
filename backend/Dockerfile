@@ -1,11 +1,14 @@
-FROM node:20-alpine
+FROM node:22.23.1-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY . .
+
+ENV NODE_ENV=production
+USER node
 
 EXPOSE 3001
 

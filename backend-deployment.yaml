@@ -18,7 +18,10 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 3001
+          # Local Minikube only. Production requires the configuration in SECURITY-UPGRADE.md.
           env:
+            - name: NODE_ENV
+              value: development
             - name: PORT
               valueFrom:
                 configMapKeyRef:
@@ -44,11 +47,11 @@ spec:
                 secretKeyRef:
                   name: backend-secret
                   key: DB_PASSWORD
-            - name: JWT_SECRET
+            - name: SESSION_SECRET
               valueFrom:
                 secretKeyRef:
                   name: backend-secret
-                  key: JWT_SECRET
+                  key: SESSION_SECRET
           readinessProbe:
             httpGet:
               path: /health

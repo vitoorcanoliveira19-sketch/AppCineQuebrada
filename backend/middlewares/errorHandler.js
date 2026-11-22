@@ -1,4 +1,5 @@
 const errorHandler = (error, req, res, next) => {
+  if (error.status && error.status >= 400 && error.status < 500) return res.status(error.status).json({ sucesso: false, mensagem: error.type === "entity.too.large" ? "O envio excede o limite de 32 KB." : error.status === 400 && error instanceof SyntaxError ? "Confira os dados enviados." : error.message });
   // Evita despejar SQL, parâmetros ou dados pessoais nos logs da aplicação.
   console.error(`Falha na requisição ${req.method} ${req.path}: ${error.name || "Erro"}`);
 

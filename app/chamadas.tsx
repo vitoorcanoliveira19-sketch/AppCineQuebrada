@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from './services/auth';
+import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '../services/auth';
 
 type Turma = { id: number; nome: string; atividade?: { nome: string } };
 type Participante = { matriculaId: number; participanteId: number; nome: string; situacao: 'presente' | 'ausente' };

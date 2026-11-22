@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { API_URL } from './services/api';
-import { guardarToken, lerToken, requisicaoInterna, UsuarioInterno } from './services/auth';
+import { entrar as autenticar, lerToken, requisicaoInterna, PerfilSessao } from '../services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -14,11 +13,11 @@ export default function LoginScreen() {
   useEffect(() => {
     let ativo = true;
     (async () => {
-      const token = await lerToken();
-      if (!token) return;
       try {
-        const { usuario } = await requisicaoInterna('/auth/me', token) as { usuario: UsuarioInterno };
-        if (ativo) router.replace('/equipe');
+        const token = await lerToken();
+        if (!token) return;
+        const perfil = await requisicaoInterna('/auth/me', token) as PerfilSessao;
+        if (ativo) router.replace(perfil.precisaMfa ? '/seguranca' : '/equipe');
       } catch { /* Token expirado: permanece na tela de login. */ }
     })();
     return () => { ativo = false; };
@@ -27,11 +26,9 @@ export default function LoginScreen() {
   async function entrar() {
     setErro(''); setCarregando(true);
     try {
-      const response = await fetch(`${API_URL}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim(), senha }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.mensagem || 'Não foi possível entrar.');
-      await guardarToken(data.token);
-      router.replace('/equipe');
+      const perfil = await autenticar(email, senha);
+      setSenha('');
+      router.replace(perfil.precisaMfa ? '/seguranca' : '/equipe');
     } catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível conectar ao servidor.'); }
     finally { setCarregando(false); }
   }

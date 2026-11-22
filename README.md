@@ -1,5 +1,7 @@
 # NovoApp
 
+**Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, MFA administrativo e novos clientes Expo.
+
 Projeto CineQuebrada com frontend Expo/React Native e backend Node.js/Express com persistencia em MySQL. O formulario publico registra pedidos de inscricao para analise da equipe.
 
 ## Estrutura
@@ -55,7 +57,7 @@ O endpoint legado `POST /cadastro` responde `410 Gone`. Contas internas não pod
 
 ### Acesso interno
 
-- `POST /auth/login`: autentica por email e senha e devolve JWT válido por 8 horas.
+- `POST /auth/login`: autentica por email e senha e cria uma sessão revogável de até 8 horas (2 horas de inatividade); web usa cookie HttpOnly e aplicativos usam Bearer no SecureStore.
 - `GET /auth/me`: valida a sessão e retorna o perfil, sem campos de senha.
 - `GET /admin/participantes`: consulta protegida somente para administrador, pois inclui dados pessoais de participantes.
 - `PATCH /admin/participantes/:id/status`: somente administrador.
@@ -68,11 +70,11 @@ Os cadastros em `/admin/cadastros` aceitam consulta de administrador e educador 
 
 ### Turmas administrativas
 
-Todas as rotas `/admin/turmas` exigem JWT de equipe. Administradores e educadores podem consultar (`GET /admin/turmas` e `GET /admin/turmas/:id`); somente administradores podem criar (`POST /admin/turmas`), editar (`PUT /admin/turmas/:id`) e alterar situação (`PATCH /admin/turmas/:id`). O PATCH recebe `{ "ativa": false }` para inativar e `true` para reativar.
+Todas as rotas `/admin/turmas` exigem sessão autenticada de equipe. Administradores e educadores podem consultar (`GET /admin/turmas` e `GET /admin/turmas/:id`); somente administradores podem criar (`POST /admin/turmas`), editar (`PUT /admin/turmas/:id`) e alterar situação (`PATCH /admin/turmas/:id`). O PATCH recebe `{ "ativa": false }` para inativar e `true` para reativar.
 
 Criação e edição recebem `nome` (2–120 caracteres), `atividadeId`, `educadorId` e `salaId` como inteiros positivos; `ativa` é opcional na criação/edição e assume `true` por padrão. Exemplo: `{ "nome": "Capoeira · manhã", "atividadeId": 1, "educadorId": 2, "salaId": 1 }`. O servidor valida que cada vínculo existe e está ativo (`Atividade.ativa`, `Educador.ativo`, `Sala.ativa`), além de validar formato e presença dos campos. A resposta de listagem/consulta inclui `atividade`, `educador` e `sala` com `id` e `nome`. As chaves estrangeiras não permitem apagar os registros vinculados enquanto houver turmas; use inativação para preservar o histórico. A interface administrativa **Turmas** oferece seleção dos cadastros ativos existentes e não cria registros de exemplo.
 
-A aba **Equipe** do app oferece login e saída. No iOS/Android, o token fica em `expo-secure-store`; no navegador, não é persistido. `POST /participantes` continua público para inscrições.
+A aba **Equipe** do app oferece login e saída. No iOS/Android, o token fica em `expo-secure-store`; no navegador, usa cookie HttpOnly e não armazena credenciais em localStorage/sessionStorage. `POST /participantes` continua público para inscrições.
 
 ## Variaveis de ambiente
 
@@ -84,12 +86,12 @@ DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=sua-senha-local-do-mysql
 DB_NAME=cadastrodb
-JWT_SECRET=segredo-aleatorio-com-pelo-menos-32-caracteres
+SESSION_SECRET=segredo-aleatorio-com-pelo-menos-32-caracteres
 ```
 
-Mantenha `JWT_SECRET` fora do repositório e use pelo menos 32 caracteres aleatórios. PowerShell pode gerar um valor com: `$bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)`. Não registre o segredo em logs.
+Mantenha `SESSION_SECRET` fora do repositório e use pelo menos 32 caracteres aleatórios. PowerShell pode gerar um valor com: `$bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)`. Não registre o segredo em logs.
 
-O backend falha na inicialização se faltar uma variável de banco ou se `JWT_SECRET` tiver menos de 32 caracteres. O corpo JSON da API é limitado a 32 KB. Em produção, configure `NODE_ENV=production` no ambiente do container. A política CORS incluída permite origens localhost para desenvolvimento; implantações web em outros domínios precisam configurar uma lista de origens confiáveis antes de habilitar acesso pelo navegador.
+O backend falha na inicialização se faltar uma variável de banco ou se `SESSION_SECRET` tiver menos de 32 caracteres. O corpo JSON da API é limitado a 32 KB. Em produção, configure `NODE_ENV=production` no ambiente do container. Configure WEB_ORIGINS com as origens HTTPS exatas e MFA_ENCRYPTION_KEY em produção; veja SECURITY-UPGRADE.md para cookies/CSRF e migração.
 
 ### Primeiro administrador
 
@@ -104,13 +106,13 @@ npm run bootstrap-admin
 Remove-Item Env:ADMIN_NAME, Env:ADMIN_EMAIL, Env:ADMIN_PASSWORD
 ```
 
-Depois entre no app. Administradores criam educadores por `POST /admin/educadores`, com `Authorization: Bearer <token>`. Para Kubernetes, substitua os valores de exemplo nos manifests de Secret por valores próprios antes de aplicar. `backend-secret.yaml` precisa de `JWT_SECRET`; não versione credenciais reais.
+Depois entre no app. Administradores criam educadores por `POST /admin/educadores`, com `Authorization: Bearer <token>`. Para Kubernetes, substitua os valores de exemplo nos manifests de Secret por valores próprios antes de aplicar. `backend-secret.yaml` precisa de `SESSION_SECRET`; não versione credenciais reais.
 
 ## Pre-requisitos no Windows
 
 ## GitHub
 
-O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) executa o lint e a checagem TypeScript do app, além de verificar a sintaxe JavaScript do backend, em pushes e pull requests para `main`.
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) executa o lint e a checagem TypeScript do app, testes de autenticação, bundles e auditoria de dependências, além de testes de segurança do backend com MySQL descartável, em pushes e pull requests para `main`.
 
 Para publicar este projeto em um repositório GitHub novo, crie um repositório vazio no GitHub e execute na pasta `novoapp`:
 
@@ -221,9 +223,9 @@ No emulador Android, o app usa `10.0.2.2:3001`; no navegador e no simulador iOS,
 ## Observacoes de arquitetura
 
 - O backend tenta reconectar ao MySQL durante a inicializacao para tolerar o tempo de subida do banco no Kubernetes.
-- Tokens JWT são revalidados contra o usuário atual em cada requisição autenticada; bloquear ou mudar o papel da conta revoga o acesso sem aguardar o token expirar. Alterações em atividades, salas, educadores e turmas são exclusivas de administrador; educadores só consultam as próprias turmas e não recebem email/contato dos demais educadores nas consultas de cadastro.
+- As sessões são revalidadas contra o usuário atual em cada requisição autenticada; bloquear ou mudar o papel da conta revoga o acesso sem aguardar o token expirar. Alterações em atividades, salas, educadores e turmas são exclusivas de administrador; educadores só consultam as próprias turmas e não recebem email/contato dos demais educadores nas consultas de cadastro.
 - Respostas de erro não incluem mensagem interna do driver, SQL, valores rejeitados ou corpo da requisição. Logs registram método, caminho e classe do erro, sem conteúdo pessoal da inscrição.
-- Não há migração de schema nesta revisão. A inicialização mantém `sequelize.sync()` sem `force` ou `alter`; não apaga tabelas nem dados. Faça backup antes de qualquer mudança de schema e não use opções destrutivas de sincronização. As colunas legadas `Participante.ativo`, `analisado_em` e `analisado_por_id` continuam sendo acrescentadas de forma aditiva quando ausentes.
+- Há uma migração aditiva de autenticação; execute `npm run migrate`. Em produção, a inicialização verifica a migração e não modifica o schema. O sincronismo de desenvolvimento não usa `force` ou `alter`. Faça backup antes de qualquer mudança de schema e não use opções destrutivas de sincronização. As colunas legadas `Participante.ativo`, `analisado_em` e `analisado_por_id` continuam sendo acrescentadas de forma aditiva quando ausentes.
 - Senhas são armazenadas como hash bcrypt e nunca retornadas pela API.
 - Usuários existentes sem papel ficam bloqueados após a sincronização, sem privilégios automáticos.
 - O campo `email` e unico no banco.
@@ -255,7 +257,7 @@ Este roteiro prepara uma validação local. Não representa aprovação da ONG n
 
 ### Ambiente local reproduzível (Windows/PowerShell)
 
-Pré-requisitos: Node.js 20 ou superior (o CI usa Node 22), npm, Docker Desktop em execução e Expo Go ou um emulador instalado. O MySQL deste roteiro roda em container local; não é necessário Minikube para validar o app.
+Pré-requisitos: Node.js 22.23.1 (alinhado ao CI e Docker), npm, Docker Desktop em execução e Expo Go ou um emulador instalado. O MySQL deste roteiro roda em container local; não é necessário Minikube para validar o app.
 
 1. Na raiz `novoapp`, instale dependências travadas pelo lockfile:
 
@@ -284,7 +286,7 @@ Pré-requisitos: Node.js 20 ou superior (o CI usa Node 22), npm, Docker Desktop 
    Copy-Item .\backend\.env.example .\backend\.env
    ```
 
-   Edite `backend/.env`, ajuste `DB_PASSWORD` para o valor local usado acima e substitua `JWT_SECRET` por um valor aleatório local de pelo menos 32 caracteres. Para gerar um segredo no PowerShell sem fixá-lo no projeto:
+   Edite `backend/.env`, ajuste `DB_PASSWORD` para o valor local usado acima e substitua `SESSION_SECRET` por um valor aleatório local de pelo menos 32 caracteres. Para gerar um segredo no PowerShell sem fixá-lo no projeto:
 
    ```powershell
    $bytes = New-Object byte[] 48
@@ -292,7 +294,7 @@ Pré-requisitos: Node.js 20 ou superior (o CI usa Node 22), npm, Docker Desktop 
    [Convert]::ToBase64String($bytes)
    ```
 
-   Cole o resultado somente no `backend/.env` local. Não o compartilhe nem o comite. O exemplo já inclui as chaves obrigatórias `PORT`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` e `JWT_SECRET`.
+   Cole o resultado somente no `backend/.env` local. Não o compartilhe nem o comite. O exemplo já inclui as chaves obrigatórias `PORT`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` e `SESSION_SECRET`.
 
 4. Em um PowerShell, inicie a API:
 
@@ -317,7 +319,7 @@ Para encerrar, pare API/Expo com Ctrl+C. O banco pode ser parado com `docker sto
 
 ### Endereço da API no app
 
-`app/services/api.ts` usa `EXPO_PUBLIC_API_URL` quando definida; sem ela usa `http://10.0.2.2:3001` no Android e `http://localhost:3001` nas demais plataformas. O override é uma variável pública embutida no bundle do app: nunca coloque segredos nela.
+Em desenvolvimento, `services/api.ts` usa `EXPO_PUBLIC_API_URL` quando definida; sem ela usa `http://10.0.2.2:3001` no Android e `http://localhost:3001` nas demais plataformas. Em builds publicados, EXPO_PUBLIC_API_URL HTTPS é obrigatória. O override é uma variável pública embutida no bundle do app: nunca coloque segredos nela.
 
 - **Emulador Android padrão:** deixe a variável ausente; `10.0.2.2` aponta para o computador hospedeiro.
 - **Simulador iOS:** deixe ausente; `localhost` aponta para o computador do simulador.
@@ -344,10 +346,10 @@ Use contas e registros fictícios combinados para o teste, em banco local isolad
 
 - `backend/.env` é ignorado pelo Git e não está listado como arquivo rastreado. O `.env.example` contém nomes de variáveis e placeholders, sem credenciais de produção. Não imprima nem copie valores do `.env` local para registros ou documentação.
 - `backend-secret.yaml` e `mysql-secret.yaml` contêm apenas strings `REPLACE_WITH_...`; são placeholders e não devem ser aplicados sem substituição local segura. Secrets Kubernetes em YAML não são, por si só, um cofre de segredos. Gere credenciais próprias fora do Git e use o mecanismo de segredos aprovado para o ambiente futuro.
-- O backend exige `JWT_SECRET` com pelo menos 32 caracteres e variáveis de conexão MySQL. O Deployment não define `NODE_ENV=production`; o app Expo não possui `eas.json`, perfis de build ou URL de API de produção nesta árvore. Não há domínio, TLS/ingress, pipeline de publicação móvel, política de backup/restore ou procedimento de migração formal configurados aqui.
+- O backend exige `SESSION_SECRET` com pelo menos 32 caracteres e variáveis de conexão MySQL. O Deployment Minikube é explicitamente de desenvolvimento; o Dockerfile usa `NODE_ENV=production` e exige configuração própria; o app Expo não possui `eas.json`, perfis de build ou URL de API de produção nesta árvore. Não há domínio, TLS/ingress, pipeline de publicação móvel, política de backup/restore ou procedimento de migração formal configurados aqui.
 - `backend/Dockerfile` usa Node 20 Alpine e instala dependências; o manifest MySQL usa a tag `mysql:8.0`. Imagens, versões, atualização e armazenamento precisam de política para um ambiente publicado.
-- CORS está restrito a localhost/127.0.0.1; o endpoint público de inscrição é intencionalmente aberto e recebe dados pessoais. Antes de qualquer exposição externa, a ONG precisa revisar domínio, TLS, acesso, privacidade, retenção, backup, monitoramento e resposta a incidentes.
-- A inicialização chama `sequelize.sync()` sem migrações versionadas. A documentação do projeto registra alterações aditivas de schema; isso não substitui ensaio de migração e backup/restore antes de dados persistentes.
+- CORS permite WEB_ORIGINS exatas e localhost/127.0.0.1 apenas em desenvolvimento; o endpoint público de inscrição é intencionalmente aberto e recebe dados pessoais. Antes de qualquer exposição externa, a ONG precisa revisar domínio, TLS, acesso, privacidade, retenção, backup, monitoramento e resposta a incidentes.
+- Em desenvolvimento, a inicialização chama `sequelize.sync()` e aplica a migração aditiva; em produção, exige `npm run migrate` prévio. A documentação do projeto registra alterações aditivas de schema; isso não substitui ensaio de migração e backup/restore antes de dados persistentes.
 
 Esta é uma leitura dos arquivos locais, não uma auditoria de segurança nem uma validação do ambiente remoto.
 

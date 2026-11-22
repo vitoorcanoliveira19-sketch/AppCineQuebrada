@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+const { hashSenha } = require("../services/passwords");
 const { connectWithRetry, sequelize } = require("../config/database");
 const { Usuario, syncDatabase } = require("../models");
 
@@ -8,7 +8,7 @@ async function main() {
   await connectWithRetry();
   await syncDatabase();
   if (await Usuario.count({ where: { papel: "administrador" } })) throw new Error("Já existe administrador; bootstrap inicial recusado.");
-  const usuario = await Usuario.create({ nome: ADMIN_NAME.trim(), email: ADMIN_EMAIL.trim().toLowerCase(), senha: await bcrypt.hash(ADMIN_PASSWORD, 12), papel: "administrador" });
+  const usuario = await Usuario.create({ nome: ADMIN_NAME.trim(), email: ADMIN_EMAIL.trim().toLowerCase(), senha: await hashSenha(ADMIN_PASSWORD), papel: "administrador" });
   console.log(`Administrador inicial criado: ${usuario.email}`);
 }
 

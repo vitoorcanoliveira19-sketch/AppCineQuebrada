@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
-import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno } from '@/services/auth';
+import { apagarToken, lerToken, requisicaoInterna, UsuarioInterno, PerfilSessao } from '@/services/auth';
 
 type Inscricao = { id: number; nome: string; email: string; celular?: string; telefone?: string; dataNascimento?: string; atividadeInteresse: string; status: string; ativo: boolean; analisadoEm?: string };
 const atividades = ['Futebol', 'Karatê', 'Capoeira', 'Ballet', 'FitDance', 'Horta Orgânica', 'Reforço escolar', 'CineQuebrada'];
@@ -15,6 +15,7 @@ export default function EquipeScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [status, setStatus] = useState('pendente');
   const [nome, setNome] = useState('');
+  const [nomeAplicado, setNomeAplicado] = useState('');
   const [atividade, setAtividade] = useState('');
   const [pagina, setPagina] = useState(1);
   const [paginas, setPaginas] = useState(1);
@@ -25,11 +26,12 @@ export default function EquipeScreen() {
   const [atividadeEdicao, setAtividadeEdicao] = useState('');
 
   const carregar = useCallback(async (p = pagina) => {
-    const saved = token || await lerToken();
-    if (!saved) { router.replace('/login'); return; }
-    setToken(saved);
     try {
-      const me = await requisicaoInterna('/auth/me', saved) as { usuario: UsuarioInterno };
+      const saved = await lerToken();
+      if (!saved) { router.replace('/login'); return; }
+      const me = await requisicaoInterna('/auth/me', saved) as PerfilSessao;
+      if (me.precisaMfa) { router.replace('/seguranca'); return; }
+      setToken(saved);
       setUsuario(me.usuario);
       if (me.usuario.papel !== 'administrador') {
         setInscricoes([]);
@@ -38,16 +40,14 @@ export default function EquipeScreen() {
         return;
       }
       const query = new URLSearchParams({ status, page: String(p), limit: '20' });
-      if (nome.trim()) query.set('nome', nome.trim());
+      if (nomeAplicado.trim()) query.set('nome', nomeAplicado.trim());
       if (atividade) query.set('atividade', atividade);
       const lista = await requisicaoInterna(`/admin/participantes?${query}`, saved) as { dados: Inscricao[]; paginacao: { paginas: number } };
       setInscricoes(lista.dados); setPaginas(lista.paginacao.paginas); setErro('');
     } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível carregar.'); }
     finally { setCarregando(false); }
-  }, [router, token, status, nome, atividade, pagina]);
-  useEffect(() => { carregar(1); }, [status, atividade]);
-  useEffect(() => { (async () => { const saved = await lerToken(); if (!saved) router.replace('/login'); else { setToken(saved); setCarregando(false); } })(); }, [router]);
-  useEffect(() => { if (token) carregar(pagina); }, [pagina]);
+  }, [router, status, nomeAplicado, atividade, pagina]);
+  useEffect(() => { void Promise.resolve().then(() => carregar()); }, [carregar]);
 
   function decidir(item: Inscricao, decisao: 'aprovado' | 'recusado') {
     Alert.alert(`${decisao === 'aprovado' ? 'Aprovar' : 'Recusar'} inscrição`, `Confirmar ${decisao === 'aprovado' ? 'a aprovação' : 'a recusa'} de ${item.nome}?`, [
@@ -68,15 +68,17 @@ export default function EquipeScreen() {
       { text: 'Cancelar', style: 'cancel' }, { text: 'Inativar', style: 'destructive', onPress: async () => { if (!token) return; try { await requisicaoInterna(`/admin/participantes/${item.id}/inativar`, token, { method: 'PATCH' }); await carregar(pagina); } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível inativar.'); } } },
     ]);
   }
-  async function sair() { await apagarToken(); router.replace('/login'); }
+  async function sair() { try { await apagarToken(); router.replace('/login'); } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível sair.'); } }
 
   if (carregando) return <SafeAreaView style={styles.page}><ActivityIndicator color="#e8bd39" /></SafeAreaView>;
   return <SafeAreaView style={styles.page}><View style={styles.header}><View><Text style={styles.brand}>ÁREA DA EQUIPE</Text><Text style={styles.title}>{usuario?.nome}</Text><Text style={styles.role}>{usuario?.papel === 'administrador' ? 'Administrador' : 'Educador'}</Text></View><TouchableOpacity onPress={sair}><Text style={styles.logout}>Sair</Text></TouchableOpacity></View>
     {usuario?.papel === 'administrador' && <>
+      <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/contas')}><Text style={styles.adminButtonText}>Gerenciar contas de acesso</Text></TouchableOpacity>
       <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-cadastros')}><Text style={styles.adminButtonText}>Gerenciar atividades, salas e educadores</Text></TouchableOpacity>
       <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-turmas')}><Text style={styles.adminButtonText}>Gerenciar turmas</Text></TouchableOpacity>
       <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/admin-matriculas')}><Text style={styles.adminButtonText}>Gerenciar matrículas</Text></TouchableOpacity>
     </>}
+    <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/seguranca')}><Text style={styles.adminButtonText}>Segurança da conta e senha</Text></TouchableOpacity>
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/chamadas')}><Text style={styles.adminButtonText}>Registrar chamada e frequência</Text></TouchableOpacity>
     <TouchableOpacity style={styles.adminButton} onPress={() => router.push('/historico-frequencia')}><Text style={styles.adminButtonText}>Consultar histórico de frequência</Text></TouchableOpacity>
     <ScrollView contentContainerStyle={styles.list}>{!!erro && <Text style={styles.error}>{erro}</Text>}
@@ -85,7 +87,7 @@ export default function EquipeScreen() {
       <Text style={styles.label}>Status</Text><View style={styles.picker}><Picker selectedValue={status} onValueChange={(v) => { setStatus(v); setPagina(1); }} dropdownIconColor="#fff" style={styles.pickerText}><Picker.Item label="Pendentes" value="pendente" /><Picker.Item label="Aprovados" value="aprovado" /><Picker.Item label="Recusados" value="recusado" /><Picker.Item label="Todos" value="todos" /></Picker></View>
       <TextInput value={nome} onChangeText={setNome} placeholder="Filtrar por nome" placeholderTextColor="#aaa" style={styles.input} />
       <View style={styles.picker}><Picker selectedValue={atividade} onValueChange={(v) => { setAtividade(v); setPagina(1); }} dropdownIconColor="#fff" style={styles.pickerText}><Picker.Item label="Todas as atividades" value="" />{atividades.map((a) => <Picker.Item key={a} label={a} value={a} />)}</Picker></View>
-      <TouchableOpacity style={styles.filterButton} onPress={() => { setPagina(1); carregar(1); }}><Text style={styles.adminButtonText}>Aplicar filtros</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.filterButton} onPress={() => { setNomeAplicado(nome); setPagina(1); if (nome === nomeAplicado && pagina === 1) void carregar(1); }}><Text style={styles.adminButtonText}>Aplicar filtros</Text></TouchableOpacity>
       {inscricoes.map((item) => <View key={item.id} style={styles.card}><Text style={styles.name}>{item.nome}</Text><Text style={styles.detail}>{item.atividadeInteresse} · {item.email}</Text>{item.celular ? <Text style={styles.detail}>Celular: {item.celular}</Text> : null}{item.dataNascimento ? <Text style={styles.detail}>Nascimento: {item.dataNascimento}</Text> : null}<Text style={styles.status}>Status: {item.status}{item.status === 'aprovado' ? ` · ${item.ativo ? 'ativo' : 'inativo'}` : ''}</Text>{item.analisadoEm ? <Text style={styles.detail}>Analisado em: {new Date(item.analisadoEm).toLocaleDateString('pt-BR')}</Text> : null}
         {item.status === 'pendente' && <View style={styles.actions}><TouchableOpacity style={styles.action} onPress={() => decidir(item, 'aprovado')}><Text style={styles.actionText}>Aprovar</Text></TouchableOpacity><TouchableOpacity style={styles.action} onPress={() => decidir(item, 'recusado')}><Text style={styles.actionText}>Recusar</Text></TouchableOpacity></View>}
         {item.status === 'aprovado' && item.ativo && <><TouchableOpacity style={styles.action} onPress={() => { setEditando(editando === item.id ? null : item.id); setNomeEdicao(item.nome); setEmailEdicao(item.email); setCelularEdicao(item.celular || ''); setAtividadeEdicao(item.atividadeInteresse); }}><Text style={styles.actionText}>Editar participante</Text></TouchableOpacity><TouchableOpacity style={styles.action} onPress={() => inativar(item)}><Text style={styles.actionText}>Inativar</Text></TouchableOpacity>{editando === item.id && <View><TextInput value={nomeEdicao} onChangeText={setNomeEdicao} placeholder="Nome" placeholderTextColor="#aaa" style={styles.input}/><TextInput value={emailEdicao} onChangeText={setEmailEdicao} placeholder="Email" placeholderTextColor="#aaa" style={styles.input} keyboardType="email-address" autoCapitalize="none"/><TextInput value={celularEdicao} onChangeText={setCelularEdicao} placeholder="Celular" placeholderTextColor="#aaa" style={styles.input} keyboardType="phone-pad"/><View style={styles.picker}><Picker selectedValue={atividadeEdicao} onValueChange={setAtividadeEdicao} dropdownIconColor="#fff" style={styles.pickerText}>{atividades.map((a) => <Picker.Item key={a} label={a} value={a} />)}</Picker></View><TouchableOpacity style={styles.filterButton} onPress={() => salvarEdicao(item)}><Text style={styles.adminButtonText}>Salvar</Text></TouchableOpacity></View>}</>}

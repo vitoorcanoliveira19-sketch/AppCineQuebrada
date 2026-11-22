@@ -1,8 +1,7 @@
 import { Picker } from "@react-native-picker/picker";
 import CheckBox from "expo-checkbox";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
-import { useLocalSearchParams } from "expo-router";
 import { enviarInscricao } from "@/services/api";
 import {
   Alert,

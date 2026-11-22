@@ -7,7 +7,12 @@ const Turma = require("./turma");
 const Matricula = require("./matricula");
 const Chamada = require("./chamada");
 const Presenca = require("./presenca");
+const Sessao = require("./sessao");
+const LimiteAcesso = require("./limiteAcesso");
 const { sequelize } = require("../config/database");
+
+Usuario.belongsTo(Educador, { as: "educador", foreignKey: { name: "educadorId", field: "educador_id", allowNull: true }, onDelete: "RESTRICT" });
+Sessao.belongsTo(Usuario, { foreignKey: { name: "usuarioId", field: "usuario_id", allowNull: false }, onDelete: "CASCADE" });
 
 Atividade.hasMany(Turma, { foreignKey: { name: "atividadeId", field: "atividade_id", allowNull: false }, onDelete: "RESTRICT" });
 Turma.belongsTo(Atividade, { as: "atividade", foreignKey: { name: "atividadeId", field: "atividade_id", allowNull: false } });
@@ -38,6 +43,7 @@ const syncDatabase = async () => {
   for (const [nome, definicao] of Object.entries(colunas)) {
     if (!tabela[nome]) await sequelize.getQueryInterface().addColumn("Participante", nome, definicao);
   }
+  await require("../migrations/security").migrar({ sequelize, Usuario, Educador });
   console.log("Modelos sincronizados com o banco de dados.");
 };
 
@@ -52,5 +58,7 @@ module.exports = {
   Matricula,
   Chamada,
   Presenca,
+  Sessao,
+  LimiteAcesso,
   syncDatabase,
 };

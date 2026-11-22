@@ -10,12 +10,19 @@ const chamadaRoutes = require("./routes/chamadaRoutes");
 
 const app = express();
 
+const { originAllowed } = require("./config/security");
+app.disable("x-powered-by");
+if (process.env.TRUST_PROXY) app.set("trust proxy", process.env.TRUST_PROXY.split(",").map(v => v.trim()));
 app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
   const origin = req.headers.origin;
-  if (origin && (/^https?:\/\/localhost(?::\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(?::\d+)?$/.test(origin))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
+  if (origin) {
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (!originAllowed(origin)) return res.status(403).json({ sucesso: false, mensagem: "Origem não permitida." });
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
@@ -32,6 +39,7 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/", cadastroRoutes);
+app.use("/participantes", require("./middlewares/rateLimit").inscricao);
 app.use("/", participanteRoutes);
 app.use("/", authRoutes);
 app.use("/", cadastrosAdminRoutes);

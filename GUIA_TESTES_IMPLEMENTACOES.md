@@ -1,3 +1,5 @@
+**Segurança:** execute primeiro a migração e confira [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md). JWTs antigos são invalidados; administradores precisam configurar MFA.
+
 # Guia rápido de testes
 
 Use o banco local e somente dados fictícios. Esta preparação cria a conta de administrador no seu banco local. Você escolhe o email e a senha; o projeto não tem senha padrão.
@@ -33,7 +35,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
    notepad .env
    ```
 
-   Em `backend/.env`, defina `DB_PASSWORD=local-only-change-me` e troque `JWT_SECRET` por uma frase aleatória com pelo menos 32 caracteres. Salve o arquivo. Ele é local e não deve ser compartilhado.
+   Em `backend/.env`, defina `DB_PASSWORD=local-only-change-me` e troque `SESSION_SECRET` por uma frase aleatória com pelo menos 32 caracteres. Salve o arquivo. Ele é local e não deve ser compartilhado.
 
 4. Inicie o backend em uma janela do PowerShell. Entre diretamente na pasta do backend:
 

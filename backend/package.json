@@ -8,6 +8,10 @@
     "dev": "nodemon server.js",
     "bootstrap-admin": "node scripts/bootstrap-admin.js",
     "reset-educator-password": "node scripts/reset-educator-password.js",
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test test/*.test.js",
+    "reset-staff-password": "node scripts/reset-staff-password.js",
+    "link-educator": "node scripts/link-educator.js",
     "seed:validation": "node scripts/seed-validation.js"
   },
   "keywords": [
@@ -19,15 +23,21 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "bcrypt": "^5.1.1",
-    "dotenv": "^16.4.5",
-    "express": "^4.21.2",
-    "express-validator": "^7.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.11.3",
+    "bcrypt": "^6.0.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3",
+    "express-validator": "^7.3.2",
+    "mysql2": "^3.24.6",
+    "otpauth": "^9.6.0",
     "sequelize": "^6.37.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=22.23.1 <23"
+  },
+  "overrides": {
+    "minimatch": "^11.0.8"
   }
 }

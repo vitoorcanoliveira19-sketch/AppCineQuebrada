@@ -70,7 +70,7 @@ export default function AdminCadastrosScreen() {
 
   return <SafeAreaView style={styles.page}><ScrollView contentContainerStyle={styles.content}>
     <Text style={styles.brand}>CINEQUEBRADA · ADMINISTRAÇÃO</Text><Text style={styles.title}>Cadastros</Text>
-    <View style={styles.tabs}>{tipos.map((item) => <TouchableOpacity key={item.id} style={[styles.tab, tipo === item.id && styles.selectedTab]} onPress={() => { tipo !== item.id && (setTipo(item.id), limparFormulario(), setAviso('')); }}><Text style={[styles.tabText, tipo === item.id && styles.selectedTabText]}>{item.label}</Text></TouchableOpacity>)}</View>
+    <View style={styles.tabs}>{tipos.map((item) => <TouchableOpacity key={item.id} style={[styles.tab, tipo === item.id && styles.selectedTab]} onPress={() => { if (tipo !== item.id) { setTipo(item.id); limparFormulario(); setAviso(''); } }}><Text style={[styles.tabText, tipo === item.id && styles.selectedTabText]}>{item.label}</Text></TouchableOpacity>)}</View>
     <View style={styles.form}><Text style={styles.section}>{editando ? 'Editar cadastro' : `Novo cadastro · ${tipos.find((item) => item.id === tipo)?.label}`}</Text>
       <Text style={styles.label}>{tipo === 'salas' ? 'Nome ou identificação' : 'Nome'}</Text><TextInput style={styles.input} value={nome} onChangeText={setNome} maxLength={tipo === 'atividades' ? 120 : tipo === 'salas' ? 120 : 255} />
       {tipo === 'atividades' && <><Text style={styles.label}>Descrição (opcional)</Text><TextInput style={[styles.input, styles.multiline]} value={descricao} onChangeText={setDescricao} multiline maxLength={5000} /></>}

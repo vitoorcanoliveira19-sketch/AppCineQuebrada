@@ -9,17 +9,17 @@ const educadores = [
 
 const participantes = [
   ["Ana Clara Souza (Teste)", "ana.clara@alunos.validacao.example", "2013-04-12", "Capoeira", "aprovado"],
-  ["Bruno Martins (Teste)", "bruno.martins@alunos.validacao.example", "2011-09-23", "Fitdance", "pendente"],
+  ["Bruno Martins (Teste)", "bruno.martins@alunos.validacao.example", "2011-09-23", "FitDance", "pendente"],
   ["Camila Oliveira (Teste)", "camila.oliveira@alunos.validacao.example", "2015-01-08", "Ballet", "aprovado"],
   ["Daniel Ferreira (Teste)", "daniel.ferreira@alunos.validacao.example", "2009-06-17", "Capoeira", "recusado"],
   ["Elisa Rodrigues (Teste)", "elisa.rodrigues@alunos.validacao.example", "2012-11-02", "Horta Orgânica", "pendente"],
-  ["Felipe Gomes (Teste)", "felipe.gomes@alunos.validacao.example", "2014-02-26", "Cine Quebrada", "aprovado"],
-  ["Gabriela Lima (Teste)", "gabriela.lima@alunos.validacao.example", "2010-08-14", "Fitdance", "pendente"],
+  ["Felipe Gomes (Teste)", "felipe.gomes@alunos.validacao.example", "2014-02-26", "CineQuebrada", "aprovado"],
+  ["Gabriela Lima (Teste)", "gabriela.lima@alunos.validacao.example", "2010-08-14", "FitDance", "pendente"],
   ["Heitor Barros (Teste)", "heitor.barros@alunos.validacao.example", "2016-05-30", "Ballet", "aprovado"],
   ["Isabela Rocha (Teste)", "isabela.rocha@alunos.validacao.example", "2013-12-05", "Capoeira", "pendente"],
   ["João Pedro Santos (Teste)", "joao.pedro@alunos.validacao.example", "2011-03-19", "Horta Orgânica", "recusado"],
-  ["Larissa Mendes (Teste)", "larissa.mendes@alunos.validacao.example", "2015-07-21", "Cine Quebrada", "aprovado"],
-  ["Miguel Azevedo (Teste)", "miguel.azevedo@alunos.validacao.example", "2012-10-11", "Fitdance", "pendente"],
+  ["Larissa Mendes (Teste)", "larissa.mendes@alunos.validacao.example", "2015-07-21", "CineQuebrada", "aprovado"],
+  ["Miguel Azevedo (Teste)", "miguel.azevedo@alunos.validacao.example", "2012-10-11", "FitDance", "pendente"],
 ].map(([nome, email, dataNascimento, atividadeInteresse, status], index) => ({
   nome,
   email,
@@ -38,6 +38,7 @@ const participantes = [
 }));
 
 async function main() {
+  if (process.env.NODE_ENV === "production") throw new Error("Carga de validação desativada em produção.");
   await connectWithRetry();
   await syncDatabase();
   let educadoresCriados = 0;

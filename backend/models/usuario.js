@@ -37,6 +37,11 @@ const Usuario = sequelize.define("Usuario", {
     allowNull: false,
     defaultValue: "bloqueado",
   },
+  educadorId: { type: DataTypes.INTEGER, allowNull: true, unique: true, field: "educador_id" },
+  authVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0, field: "auth_version" },
+  mfaSecret: { type: DataTypes.TEXT, allowNull: true, field: "mfa_secret" },
+  mfaLastCounter: { type: DataTypes.BIGINT, allowNull: true, field: "mfa_last_counter" },
+  mfaRecoveryCodes: { type: DataTypes.JSON, allowNull: true, field: "mfa_recovery_codes" },
 });
 
 module.exports = Usuario;

@@ -38,6 +38,17 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.get("/ready", async (_req, res) => {
+  try {
+    const { sequelize } = require("./models");
+    await sequelize.authenticate();
+    await require("./migrations/security").verificar(sequelize);
+    return res.json({ sucesso: true, mensagem: "API e banco prontos." });
+  } catch {
+    return res.status(503).json({ sucesso: false, mensagem: "API ainda não está pronta. Confira banco e migração no servidor." });
+  }
+});
+
 app.use("/", cadastroRoutes);
 app.use("/participantes", require("./middlewares/rateLimit").inscricao);
 app.use("/", participanteRoutes);

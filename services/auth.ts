@@ -23,7 +23,7 @@ export async function lerToken() {
   try { response = await fetch(`${API_URL}/auth/me`, { credentials: 'include' }); }
   catch { return WEB_SESSION; }
   if (response.status === 401) { csrfToken = null; return null; }
-  if (!response.ok) throw new Error('NÃ£o foi possÃ­vel verificar a sessÃ£o. Tente novamente.');
+  if (!response.ok) throw new Error('Não foi possível verificar a sessão. Tente novamente.');
   const perfil = await response.json() as PerfilSessao;
   csrfToken = perfil.csrfToken;
   return WEB_SESSION;
@@ -35,7 +35,7 @@ export async function entrar(email: string, senha: string) {
     body: JSON.stringify({ email: email.trim(), senha, cliente: Platform.OS === 'web' ? 'web' : 'native' }),
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.mensagem || 'NÃ£o foi possÃ­vel entrar.');
+  if (!response.ok) throw new Error(data.mensagem || 'Não foi possível entrar.');
   csrfToken = data.csrfToken;
   await guardarToken(data.token);
   return data as PerfilSessao;
@@ -62,7 +62,7 @@ export async function requisicaoInterna(path: string, token: string, options: Re
   const method = (options.method || 'GET').toUpperCase();
   if (web && !['GET', 'HEAD', 'OPTIONS'].includes(method) && !csrfToken) {
     const current = await lerToken();
-    if (!current) throw new ErroSessao('SessÃ£o expirada. Entre novamente.', 401);
+    if (!current) throw new ErroSessao('Sessão expirada. Entre novamente.', 401);
   }
   const response = await fetch(`${API_URL}${path}`, {
     ...options, credentials: web ? 'include' : 'omit',
@@ -79,7 +79,7 @@ export async function requisicaoInterna(path: string, token: string, options: Re
       router.replace('/login');
     } else if (data.codigo === 'MFA_NECESSARIO') router.replace('/seguranca');
     const detalhes = Array.isArray(data.erros) ? data.erros.map((erro: { mensagem?: string }) => erro.mensagem).filter(Boolean).join('\n') : '';
-    throw new ErroSessao(detalhes || data.mensagem || 'NÃ£o foi possÃ­vel concluir a aÃ§Ã£o.', response.status, data.codigo);
+    throw new ErroSessao(detalhes || data.mensagem || 'Não foi possível concluir a ação.', response.status, data.codigo);
   }
   return data;
 }

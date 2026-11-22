@@ -1,5 +1,7 @@
 # NovoApp
 
+**QR no Expo Go SDK 58 e celular real:** siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md). Use `npm run expo:lan -- --host IP-DO-WIFI` ou `npm run expo:tunnel -- --api https://SUA-API`. O lançador verifica a API e gera o QR em `.expo/expo-go/`.
+
 **Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, MFA administrativo e novos clientes Expo.
 
 Projeto CineQuebrada com frontend Expo/React Native e backend Node.js/Express com persistencia em MySQL. O formulario publico registra pedidos de inscricao para analise da equipe.
@@ -216,7 +218,7 @@ Inscricao publica:
 POST http://localhost:3001/participantes
 ```
 
-No emulador Android, o app usa `10.0.2.2:3001`; no navegador e no simulador iOS, usa `localhost:3001`. Para testar em um celular fisico, configure `EXPO_PUBLIC_API_URL` no ambiente do Expo com o IP local do computador, por exemplo `http://192.168.0.10:3001`.
+Para testar em celular físico, siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md). O lançador LAN usa o IP do computador e verifica a API antes de gerar o QR. O fallback `10.0.2.2:3001` fica restrito ao emulador Android; aparelhos físicos recusam esse endereço.
 
 ## Teste rapido da API
 
@@ -303,7 +305,7 @@ Pré-requisitos: Node.js 22.23.1 (alinhado ao CI e Docker), npm, Docker Desktop 
    npm start
    ```
 
-   Aguarde a mensagem de conexão ao MySQL e consulte `http://localhost:3001/health`; deve responder HTTP 200. Mantenha essa janela aberta.
+   Aguarde a mensagem de conexão ao MySQL e consulte `http://localhost:3001/ready`; deve responder HTTP 200 após conferir banco e migração. Mantenha essa janela aberta.
 
 5. Em outro PowerShell na raiz, inicie o Expo:
 
@@ -311,7 +313,7 @@ Pré-requisitos: Node.js 22.23.1 (alinhado ao CI e Docker), npm, Docker Desktop 
    npx expo start
    ```
 
-   Use `a` para abrir no emulador Android, `i` no simulador iOS em macOS, ou leia o QR code com Expo Go. Se alterar `EXPO_PUBLIC_API_URL`, reinicie o Expo com `npx expo start --clear` para incorporar a variável.
+   Use `a` para abrir no emulador Android ou `i` no simulador iOS em macOS. Para celular físico, use `npm run expo:lan -- --host IP-DO-WIFI` e siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md), incluindo a validação da API pelo telefone. Se alterar `EXPO_PUBLIC_API_URL`, reinicie o Expo com `--clear` para incorporar a variável.
 
 6. Para criar o primeiro usuário administrador de validação, use o procedimento **Primeiro administrador** acima, na mesma janela/configuração do backend e com valores de teste fornecidos pela equipe. A API não cria credenciais iniciais automaticamente. Não cadastre dados pessoais reais sem autorização e combinação prévia sobre ambiente, retenção e descarte.
 
@@ -319,12 +321,13 @@ Para encerrar, pare API/Expo com Ctrl+C. O banco pode ser parado com `docker sto
 
 ### Endereço da API no app
 
-Em desenvolvimento, `services/api.ts` usa `EXPO_PUBLIC_API_URL` quando definida; sem ela usa `http://10.0.2.2:3001` no Android e `http://localhost:3001` nas demais plataformas. Em builds publicados, EXPO_PUBLIC_API_URL HTTPS é obrigatória. O override é uma variável pública embutida no bundle do app: nunca coloque segredos nela.
+Em desenvolvimento, `services/api.ts` usa `EXPO_PUBLIC_API_URL` quando definida. Sem ela, usa o IP privado do manifesto Expo na LAN; no web, o hostname da página. Os fallbacks locais só são usados em emuladores/simuladores sem host LAN. `EXPO_PUBLIC_API_PORT` permite alterar a porta padrão 3001. Em builds publicados, `EXPO_PUBLIC_API_URL` HTTPS é obrigatória. Essas variáveis são públicas e embutidas no bundle: nunca coloque segredos nelas.
 
-- **Emulador Android padrão:** deixe a variável ausente; `10.0.2.2` aponta para o computador hospedeiro.
-- **Simulador iOS:** deixe ausente; `localhost` aponta para o computador do simulador.
-- **Celular físico com Expo Go:** crie um arquivo `.env` na raiz (não `backend/.env`) com `EXPO_PUBLIC_API_URL=http://IP-LAN-DO-COMPUTADOR:3001`, por exemplo `http://192.168.0.10:3001`. Use o IP atual do computador na mesma rede Wi-Fi; permita conexões de entrada na porta 3001 no firewall. O servidor precisa estar acessível pela rede local.
-- **Web em dispositivo/navegador:** além de apontar para um host alcançável, o backend atualmente permite CORS apenas para origens localhost/127.0.0.1. Um host web diferente exige uma política CORS explícita para origens aprovadas.
+- **Emulador Android padrão:** quando não há host LAN no manifesto, `10.0.2.2` aponta para o computador hospedeiro.
+- **Simulador iOS:** quando não há host LAN, `localhost` aponta para o computador do simulador.
+- **Celular físico na mesma rede:** execute `npm run expo:lan -- --host IP-DO-WIFI`; o script fixa o IP correto e verifica API/banco. Libere somente as portas necessárias para a sub-rede privada, se autorizado. Valide `/ready` também no telefone.
+- **Celular físico em outra rede:** execute `npm run expo:tunnel -- --api https://SUA-API`. O túnel do Expo entrega o aplicativo; a API precisa de sua própria URL HTTPS pública.
+- **Web em dispositivo/navegador:** configure `WEB_ORIGINS` no backend com a origem exata aprovada. Localhost/127.0.0.1 são aceitos automaticamente apenas em desenvolvimento.
 
 O endereço HTTP e os defaults são para desenvolvimento local. Uma publicação requer endereço HTTPS e configuração de acesso aprovada; nenhum endpoint de produção foi fornecido ou configurado nesta revisão.
 

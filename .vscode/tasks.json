@@ -74,6 +74,17 @@
         "reveal": "always",
         "panel": "dedicated"
       }
+    },
+    {
+      "label": "QR Expo Go — celular real (LAN)",
+      "type": "npm",
+      "script": "expo:lan",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     }
   ]
 }

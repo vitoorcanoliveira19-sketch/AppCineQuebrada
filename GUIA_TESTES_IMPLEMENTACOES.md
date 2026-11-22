@@ -2,6 +2,8 @@
 
 # Guia rápido de testes
 
+Para QR Code no Expo Go SDK 58 em celular físico, siga também [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md). O procedimento cobre acesso à API pela LAN e por outras redes; o endereço do emulador não atende um telefone real.
+
 Use o banco local e somente dados fictícios. Esta preparação cria a conta de administrador no seu banco local. Você escolhe o email e a senha; o projeto não tem senha padrão.
 
 ## 1. Iniciar e preparar

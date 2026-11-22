@@ -6,6 +6,7 @@ const { syncDatabase } = require("./models");
 dotenv.config();
 
 const PORT = process.env.PORT || 3001;
+const BIND_HOST = process.env.BIND_HOST || "0.0.0.0";
 
 require("./config/security").validateSecurityConfig();
 
@@ -16,7 +17,7 @@ const startServer = async () => {
     else await syncDatabase();
     await require("./services/sessions").limparExpiradas();
 
-    app.listen(PORT, () => {
+    app.listen(PORT, BIND_HOST, () => {
       console.log(`Servidor backend em execucao na porta ${PORT}.`);
     });
   } catch (error) {

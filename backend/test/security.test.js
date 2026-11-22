@@ -87,6 +87,18 @@ test("anonymous access fails and public internal-account signup stays disabled",
   for (const path of ["/admin/participantes", "/admin/turmas", "/admin/matriculas", "/chamadas/turmas", "/auth/me"]) assert.equal((await request(path)).status, 401, path);
   assert.equal((await request("/cadastro", { method: "POST", body: {} })).status, 410);
 });
+
+test("readiness verifies SQL and migrations while keeping failures generic", async () => {
+  assert.equal((await request("/ready")).status, 200);
+  const authenticate = models.sequelize.authenticate;
+  models.sequelize.authenticate = async () => { throw new Error("synthetic-private-database-detail"); };
+  try {
+    const result = await request("/ready");
+    assert.equal(result.status, 503);
+    assert.equal(result.body.sucesso, false);
+    assert.ok(!JSON.stringify(result.body).includes("synthetic-private"));
+  } finally { models.sequelize.authenticate = authenticate; }
+});
 test("legacy bcrypt hashes authenticate; staff role checks prevent privilege escalation", async () => {
   const result = await login("a@example.invalid"); assert.equal(result.status, 200);
   assert.equal(await bcrypt.compare(password, passwordHash), true);

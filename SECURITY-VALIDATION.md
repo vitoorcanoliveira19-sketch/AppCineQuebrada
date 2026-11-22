@@ -20,6 +20,6 @@ Os fluxos no navegador incluem login e atalhos do educador, cookie Secure/HttpOn
 
 A suíte do backend cobre isolamento de turmas inclusive para educadores sem vínculo/inativos, histórico por participante, telefones, chamada, papéis, revogação após logout/senha/bloqueio, CSRF, expiração, recuperação operacional sem remover MFA, códigos de uso único, configuração MFA concorrente, limites concorrentes, inscrições de menores e migração de schema anterior preservando usuários.
 
-O workflow foi atualizado para repetir a suíte com **MySQL 8.0** e exportar as três plataformas. A execução remota desse workflow depende de publicar a branch. Não foram gerados APK/IPA assinados, nem feitos testes em aparelhos físicos ou alteração de banco/hospedagem de produção.
+O [CI da integração](https://github.com/vitoorcanoliveira19-sketch/AppCineQuebrada/actions/runs/45064585820) passou no GitHub, incluindo a suíte com **MySQL 8.0**, lint, tipos, auditoria e exportação das três plataformas. Não foram gerados APK/IPA assinados, nem feitos testes em aparelhos físicos ou alteração de banco/hospedagem de produção.
 
 Antes de aplicar a atualização: seguir [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md), executar a migração e configurar as variáveis de produção. Sessões JWT antigas são invalidadas e administradores passam a exigir MFA.

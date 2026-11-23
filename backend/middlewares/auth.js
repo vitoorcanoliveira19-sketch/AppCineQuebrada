@@ -1,7 +1,7 @@
 const { Sessao, Usuario } = require("../models");
 const { hash, csrf, equal, cookieToken, IDLE_MS } = require("../services/sessions");
-const { originAllowed, mfaRequired } = require("../config/security");
-function autenticarSessao({ permitirMfaPendente = false } = {}) {
+const { originAllowed } = require("../config/security");
+function autenticarSessao() {
   return async (req, res, next) => {
     const bearer = req.headers.authorization?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
     const cookie = cookieToken(req);
@@ -21,7 +21,6 @@ function autenticarSessao({ permitirMfaPendente = false } = {}) {
       req.conta = usuario;
       req.sessao = sessao;
       req.csrfToken = csrf(token);
-      if (!permitirMfaPendente && mfaRequired() && usuario.papel === "administrador" && !sessao.mfaVerificada) return res.status(403).json({ sucesso: false, mensagem: "Confirme o segundo fator para continuar.", codigo: "MFA_NECESSARIO" });
       if (now - sessao.vistaEm.getTime() > 60 * 1000) await sessao.update({ vistaEm: new Date(now) });
       return next();
     } catch (error) { return next(error); }

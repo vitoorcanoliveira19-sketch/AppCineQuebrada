@@ -32,7 +32,7 @@ function client(platform, fetchImpl, savedToken) {
 const ok = body => new Response(JSON.stringify(body), { status: 200 });
 test('web login uses cookies; reload restores CSRF without reading or writing stored credentials', async () => {
   const calls = [];
-  const session = { csrfToken: 'csrf-test', usuario: { papel: 'educador' }, precisaMfa: false };
+  const session = { csrfToken: 'csrf-test', usuario: { papel: 'educador' } };
   const mockFetch = async (url, options) => { calls.push({ url, options }); return ok(session); };
   const first = client('web', mockFetch);
   await first.auth.entrar(' user@example.invalid ', 'test-password');

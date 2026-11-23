@@ -8,14 +8,12 @@ const bcrypt = require("bcrypt");
 let models, app, server, base, adminConnection, fixture, passwordHash;
 const dbName = "security_test_" + process.pid;
 process.env.NODE_ENV = "test";
-process.env.MFA_REQUIRED = "true";
 process.env.DB_HOST = process.env.TEST_DB_HOST || "127.0.0.1";
 process.env.DB_PORT = process.env.TEST_DB_PORT || "3306";
 process.env.DB_USER = process.env.TEST_DB_USER || "root";
 process.env.DB_PASSWORD = process.env.TEST_DB_PASSWORD || "test-password";
 process.env.DB_NAME = dbName;
 process.env.SESSION_SECRET = crypto.randomBytes(48).toString("base64");
-process.env.MFA_ENCRYPTION_KEY = crypto.randomBytes(32).toString("base64");
 const password = "Synthetic-test-password";
 const origin = "http://localhost:8081";
 
@@ -34,20 +32,7 @@ async function login(email, web = false) {
 async function adminToken() {
   const result = await login("admin@example.invalid");
   assert.equal(result.status, 200);
-  await models.Sessao.update({ mfaVerificada: true }, { where: { id: require("../services/sessions").hash(result.body.token) } });
   return result.body.token;
-}
-async function withoutLocalMfa(check) {
-  const mode = process.env.NODE_ENV;
-  const required = process.env.MFA_REQUIRED;
-  process.env.NODE_ENV = "development";
-  delete process.env.MFA_REQUIRED;
-  try { await check(); }
-  finally {
-    process.env.NODE_ENV = mode;
-    if (required === undefined) delete process.env.MFA_REQUIRED;
-    else process.env.MFA_REQUIRED = required;
-  }
 }
 before(async () => {
   assert.match(dbName, /^security_test_[0-9]+$/);
@@ -213,95 +198,57 @@ test("account blocking revokes sessions and reactivation never restores old sess
   assert.equal((await login("a@example.invalid")).status, 200);
   assert.equal((await request("/admin/usuarios/" + fixture.admin.id + "/ativo", { token: admin, method: "PATCH", body: { ativo: false } })).status, 409);
 });
-test("local native admin login skips MFA while authentication, roles and logout remain enforced", async () => {
-  await withoutLocalMfa(async () => {
-    const result = await login("admin@example.invalid");
-    assert.equal(result.status, 200);
-    assert.equal(result.body.precisaMfa, false);
-    assert.equal(result.body.configurarMfa, false);
-    const token = result.body.token;
-    const me = await request("/auth/me", { token });
-    assert.equal(me.body.precisaMfa, false);
-    assert.equal(me.body.configurarMfa, false);
-    assert.equal((await request("/admin/participantes", { token })).status, 200);
-    assert.equal((await request("/admin/participantes")).status, 401);
-    const educator = await login("a@example.invalid");
-    assert.equal((await request("/admin/participantes", { token: educator.body.token })).status, 403);
-    const session = await models.Sessao.findByPk(require("../services/sessions").hash(token));
-    assert.equal(session.mfaVerificada, false, "Skipping the requirement must not record an unperformed MFA as verified");
-    assert.equal((await request("/auth/logout", { token, method: "POST" })).status, 200);
-    assert.equal((await request("/admin/participantes", { token })).status, 401);
-  });
+test("native admin password login works in every environment without a second-factor state", async () => {
+  const previousMode = process.env.NODE_ENV;
+  const previousSetting = process.env.MFA_REQUIRED;
+  try {
+    process.env.MFA_REQUIRED = "true"; // Obsolete settings must not bring back the removed feature.
+    for (const mode of ["development", "test", "production"]) {
+      process.env.NODE_ENV = mode;
+      const result = await login("admin@example.invalid");
+      assert.equal(result.status, 200);
+      assert.equal(result.body.precisaMfa, undefined);
+      assert.equal(result.body.configurarMfa, undefined);
+      const token = result.body.token;
+      const me = await request("/auth/me", { token });
+      assert.equal(me.status, 200);
+      assert.equal(me.body.precisaMfa, undefined);
+      assert.equal((await request("/admin/participantes", { token })).status, 200);
+      assert.equal((await request("/admin/participantes")).status, 401);
+      assert.equal((await request("/auth/logout", { token, method: "POST" })).status, 200);
+      assert.equal((await request("/admin/participantes", { token })).status, 401);
+    }
+  } finally {
+    process.env.NODE_ENV = previousMode;
+    if (previousSetting === undefined) delete process.env.MFA_REQUIRED;
+    else process.env.MFA_REQUIRED = previousSetting;
+  }
+  const educator = await login("a@example.invalid");
+  assert.equal((await request("/admin/participantes", { token: educator.body.token })).status, 403);
 });
 
-test("local web admin login skips MFA without exposing bearer tokens or bypassing CSRF", async () => {
-  await withoutLocalMfa(async () => {
-    const result = await login("admin@example.invalid", true);
-    assert.equal(result.status, 200);
-    assert.equal(result.body.precisaMfa, false);
-    assert.equal(result.body.configurarMfa, false);
-    assert.equal(result.body.token, undefined);
-    assert.match(result.headers.get("set-cookie"), /HttpOnly/i);
-    const cookie = result.headers.get("set-cookie").split(";")[0];
-    const me = await request("/auth/me", { cookie });
-    assert.equal(me.body.precisaMfa, false);
-    assert.equal(me.body.configurarMfa, false);
-    assert.equal((await request("/admin/participantes", { cookie })).status, 200);
-    const url = "/admin/usuarios/" + fixture.a.id + "/ativo";
-    assert.equal((await request(url, { cookie, origin, method: "PATCH", body: { ativo: false } })).status, 403);
-    assert.equal((await request(url, { cookie, origin, csrf: me.body.csrfToken, method: "PATCH", body: { ativo: false } })).status, 200);
-  });
+test("web admin password login preserves HttpOnly cookies and CSRF protection", async () => {
+  const result = await login("admin@example.invalid", true);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.precisaMfa, undefined);
+  assert.equal(result.body.token, undefined);
+  assert.match(result.headers.get("set-cookie"), /HttpOnly/i);
+  const cookie = result.headers.get("set-cookie").split(";")[0];
+  const me = await request("/auth/me", { cookie });
+  assert.equal(me.body.precisaMfa, undefined);
+  assert.equal((await request("/admin/participantes", { cookie })).status, 200);
+  const url = "/admin/usuarios/" + fixture.a.id + "/ativo";
+  assert.equal((await request(url, { cookie, origin, method: "PATCH", body: { ativo: false } })).status, 403);
+  assert.equal((await request(url, { cookie, origin, csrf: me.body.csrfToken, method: "PATCH", body: { ativo: false } })).status, 200);
 });
 
-test("local MFA exception preserves enrolled factors and cannot carry an unverified session into required MFA", async () => {
-  await withoutLocalMfa(async () => {
-    process.env.MFA_REQUIRED = "false";
-    const encrypted = require("../services/mfa").encrypt(new (require("otpauth").Secret)({ size: 20 }).base32);
-    const codes = ["synthetic-existing-recovery-hmac"];
-    await fixture.admin.update({ mfaSecret: encrypted, mfaRecoveryCodes: codes, mfaLastCounter: 123 });
-    const result = await login("admin@example.invalid");
-    assert.equal(result.body.precisaMfa, false);
-    assert.equal(result.body.configurarMfa, false);
-    const token = result.body.token;
-    assert.equal((await request("/admin/participantes", { token })).status, 200);
-    process.env.MFA_REQUIRED = "true";
-    assert.equal((await request("/admin/participantes", { token })).status, 403);
-    const me = await request("/auth/me", { token });
-    assert.equal(me.body.precisaMfa, true);
-    assert.equal(me.body.configurarMfa, false);
-    process.env.NODE_ENV = "production";
-    delete process.env.MFA_REQUIRED;
-    assert.equal((await request("/admin/participantes", { token })).status, 403);
-    const unchanged = await models.Usuario.findByPk(fixture.admin.id);
-    assert.equal(unchanged.mfaSecret, encrypted);
-    assert.equal(unchanged.mfaLastCounter, 123);
-    assert.deepEqual(unchanged.mfaRecoveryCodes, codes);
-  });
+test("retired authenticator endpoints cannot create or verify factors", async () => {
+  const token = await adminToken();
+  for (const action of ["configurar", "confirmar", "verificar"]) {
+    assert.equal((await request("/auth/mfa/" + action, { token, method: "POST", body: { codigo: "123456" } })).status, 404);
+  }
 });
 
-test("admin MFA gates access, encrypts the secret and recovery codes are single-use under concurrency", async () => {
-  const first = await login("admin@example.invalid");
-  const token = first.body.token;
-  assert.equal(first.body.precisaMfa, true); assert.equal(first.body.configurarMfa, true);
-  assert.equal((await request("/admin/participantes", { token })).status, 403);
-  const setup = await request("/auth/mfa/configurar", { token, method: "POST" });
-  assert.equal(setup.status, 200); assert.ok(setup.body.segredo);
-  const reopened = await Promise.all([1,2].map(() => request("/auth/mfa/configurar", { token, method: "POST" })));
-  assert.ok(reopened.every(result => result.body.segredo === setup.body.segredo));
-  const otp = require("../services/mfa").totp(setup.body.segredo, "admin@example.invalid");
-  const confirm = await request("/auth/mfa/confirmar", { token, method: "POST", body: { codigo: otp.generate() } });
-  assert.equal(confirm.status, 200); assert.equal(confirm.body.codigosRecuperacao.length, 10);
-  assert.equal((await request("/admin/participantes", { token })).status, 200);
-  const user = await models.Usuario.findByPk(fixture.admin.id);
-  assert.notEqual(user.mfaSecret, setup.body.segredo);
-  assert.ok(!JSON.stringify(user.mfaRecoveryCodes).includes(confirm.body.codigosRecuperacao[0]));
-  const second = (await login("admin@example.invalid")).body.token;
-  assert.equal((await request("/auth/mfa/verificar", { token: second, method: "POST", body: { codigo: otp.generate() } })).status, 401, "TOTP replay rejected");
-  const recoveryBody = { codigo: confirm.body.codigosRecuperacao[0] };
-  const attempts = await Promise.all([1,2].map(() => request("/auth/mfa/verificar", { token: second, method: "POST", body: recoveryBody })));
-  assert.deepEqual(attempts.map(r => r.status).sort(), [200,401]);
-  assert.equal((await request("/admin/participantes", { token: second })).status, 200);
-});
 test("untrusted origins, missing CSRF, JSON corruption and oversized payloads fail safely", async () => {
   assert.equal((await request("/auth/login", { method: "POST", origin: "https://attacker.invalid", body: { email: "a@example.invalid", senha: password } })).status, 403);
   const malformed = await fetch(base + "/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{" });
@@ -357,7 +304,7 @@ test("production web cookies use Secure and the __Host prefix; configuration rej
     assert.equal(result.body.token, undefined);
   } finally { process.env.NODE_ENV = "test"; if (oldOrigin === undefined) delete process.env.WEB_ORIGINS; else process.env.WEB_ORIGINS = oldOrigin; }
 });
-test("operator password recovery preserves MFA and invalidates existing sessions", async () => {
+test("operator password recovery invalidates existing sessions", async () => {
   const { execFile } = require("node:child_process");
   const { promisify } = require("node:util");
   const token = (await login("a@example.invalid")).body.token;
@@ -403,7 +350,7 @@ test("migration upgrades a legacy user table additively without losing accounts 
     const Educador = legacy.define("Educador", copyAttributes(models.Educador));
     const Usuario = legacy.define("Usuario", usuarioAttributes);
     const oldColumns = { ...usuarioAttributes };
-    for (const field of ["educadorId", "authVersion", "mfaSecret", "mfaLastCounter", "mfaRecoveryCodes"]) delete oldColumns[field];
+    for (const field of ["educadorId", "authVersion"]) delete oldColumns[field];
     await legacy.getQueryInterface().createTable("Educador", Educador.rawAttributes);
     await legacy.getQueryInterface().createTable("Usuario", oldColumns);
     const educator = await Educador.create({ nome: "Legacy educator", email: "legacy@example.invalid", contato: "11999999999" });
@@ -416,28 +363,56 @@ test("migration upgrades a legacy user table additively without losing accounts 
     assert.equal(account.senha, passwordHash);
     assert.equal(account.educadorId, educator.id);
     assert.equal(account.authVersion, 0);
-    assert.equal(account.mfaSecret, null);
   } finally {
     await legacy.close(); await adminConnection.query("DROP DATABASE " + legacyName);
   }
 });
 
-test("administrator password recovery never removes the configured second factor", async () => {
-  const encrypted = require("../services/mfa").encrypt(new (require("otpauth").Secret)({ size: 20 }).base32);
-  await fixture.admin.update({ mfaSecret: encrypted, mfaRecoveryCodes: ["synthetic-recovery-hmac"] });
+test("administrator password recovery permits a fresh password-only login", async () => {
   const token = await adminToken();
   const { promisify } = require("node:util");
   await promisify(require("node:child_process").execFile)(process.execPath, ["scripts/reset-staff-password.js"], {
     cwd: require("node:path").resolve(__dirname, ".."),
     env: { ...process.env, RESET_EMAIL: "admin@example.invalid", RESET_PASSWORD: "Recovered-admin-password" },
   });
-  const updated = await models.Usuario.findByPk(fixture.admin.id);
-  assert.equal(updated.mfaSecret, encrypted);
-  assert.deepEqual(updated.mfaRecoveryCodes, ["synthetic-recovery-hmac"]);
   assert.equal((await request("/auth/me", { token })).status, 401);
   const login = await request("/auth/login", { method: "POST", body: { email: "admin@example.invalid", senha: "Recovered-admin-password" } });
-  assert.equal(login.status, 200); assert.equal(login.body.precisaMfa, true); assert.equal(login.body.configurarMfa, false);
-  assert.equal((await request("/admin/participantes", { token: login.body.token })).status, 403);
+  assert.equal(login.status, 200);
+  assert.equal((await request("/admin/participantes", { token: login.body.token })).status, 200);
+});
+
+test("removing legacy authenticator columns preserves passwords, accounts, educator links and pending sessions", async () => {
+  const { DataTypes } = require("sequelize");
+  const qi = models.sequelize.getQueryInterface();
+  const oldColumns = {
+    Usuario: { mfa_secret: DataTypes.TEXT, mfa_last_counter: DataTypes.BIGINT, mfa_recovery_codes: DataTypes.JSON },
+    Sessao: { mfa_verificada: DataTypes.BOOLEAN, mfa_pendente: DataTypes.TEXT },
+  };
+  for (const [table, fields] of Object.entries(oldColumns)) {
+    for (const [field, type] of Object.entries(fields)) await qi.addColumn(table, field, { type, allowNull: true });
+  }
+  const token = await adminToken();
+  await models.sequelize.query("UPDATE Usuario SET mfa_secret = 'retired-ciphertext', mfa_last_counter = 42, mfa_recovery_codes = '[]' WHERE id = :id", { replacements: { id: fixture.admin.id } });
+  await models.sequelize.query("UPDATE Sessao SET mfa_verificada = false, mfa_pendente = 'retired-pending-factor'");
+  assert.equal((await request("/admin/participantes", { token })).status, 200, "Even an unmigrated pending factor cannot block login");
+  const counts = { users: await models.Usuario.count(), participants: await models.Participante.count() };
+  const migration = require("../migrations/remove-mfa");
+  await models.sequelize.query("DELETE FROM Migracao WHERE nome = :nome", { replacements: { nome: migration.VERSION } });
+  await assert.rejects(require("../migrations/security").verificar(models.sequelize), /npm run migrate/);
+  for (let i=0; i<2; i++) await require("../migrations/security").migrar(models);
+  await require("../migrations/security").verificar(models.sequelize);
+  for (const [table, fields] of Object.entries(oldColumns)) {
+    const columns = await qi.describeTable(table);
+    for (const field of Object.keys(fields)) assert.equal(columns[field], undefined, table + "." + field + " must be removed");
+  }
+  assert.equal(await models.Usuario.count(), counts.users);
+  assert.equal(await models.Participante.count(), counts.participants);
+  const admin = await models.Usuario.findByPk(fixture.admin.id);
+  assert.equal(admin.senha, passwordHash);
+  assert.equal(admin.authVersion, fixture.admin.authVersion);
+  assert.equal((await models.Usuario.findByPk(fixture.a.id)).educadorId, fixture.e1.id);
+  assert.equal((await request("/admin/participantes", { token })).status, 200);
+  assert.equal((await login("admin@example.invalid")).status, 200);
 });
 
 test("validation seed stays idempotent and keeps existing records and canonical activities", async () => {

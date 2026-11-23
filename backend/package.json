@@ -28,7 +28,6 @@
     "express": "^4.22.3",
     "express-validator": "^7.3.2",
     "mysql2": "^3.24.6",
-    "otpauth": "^9.6.0",
     "sequelize": "^6.37.5"
   },
   "devDependencies": {

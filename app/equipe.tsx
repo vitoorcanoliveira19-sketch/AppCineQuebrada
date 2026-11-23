@@ -30,7 +30,6 @@ export default function EquipeScreen() {
       const saved = await lerToken();
       if (!saved) { router.replace('/login'); return; }
       const me = await requisicaoInterna('/auth/me', saved) as PerfilSessao;
-      if (me.precisaMfa) { router.replace('/seguranca'); return; }
       setToken(saved);
       setUsuario(me.usuario);
       if (me.usuario.papel !== 'administrador') {

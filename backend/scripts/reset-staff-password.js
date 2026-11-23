@@ -11,6 +11,6 @@ async function main() {
     await usuario.update({ senha, authVersion: usuario.authVersion + 1 }, { transaction });
     await revogarTodas(usuario.id, transaction);
   });
-  console.log("Senha redefinida; sessões anteriores revogadas. O segundo fator foi preservado.");
+  console.log("Senha redefinida; sessões anteriores revogadas.");
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => sequelize.close());

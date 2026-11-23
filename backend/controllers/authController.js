@@ -1,11 +1,9 @@
 const bcrypt = require("bcrypt");
 const { validationResult } = require("express-validator");
-const { Op } = require("sequelize");
-const { Usuario, Educador, Sessao, sequelize } = require("../models");
+const { Usuario, Educador, sequelize } = require("../models");
 const { criarSessao, clearCookie, revogarTodas } = require("../services/sessions");
 const { hashSenha } = require("../services/passwords");
-const { originAllowed, mfaRequired } = require("../config/security");
-const mfa = require("../services/mfa");
+const { originAllowed } = require("../config/security");
 // Equalize the expensive password check for missing/blocked users as well.
 const dummyHash = bcrypt.hashSync("synthetic-constant-for-timing-only", 12);
 const perfil = usuario => ({ id: usuario.id, nome: usuario.nome, email: usuario.email, papel: usuario.papel, educadorId: usuario.educadorId });
@@ -21,17 +19,12 @@ async function login(req, res, next) {
     const senhaCorreta = await bcrypt.compare(req.body.senha, usuario?.senha || dummyHash);
     if (!usuario || usuario.papel === "bloqueado" || !senhaCorreta) return res.status(401).json({ sucesso: false, mensagem: "Email ou senha incorretos." });
     const cliente = req.headers.origin || req.body.cliente === "web" ? "web" : "native";
-    const exigeMfa = mfaRequired() && usuario.papel === "administrador";
     const dados = await criarSessao(usuario, cliente, res);
-    return res.json({ sucesso: true, ...dados, usuario: perfil(usuario),
-      precisaMfa: exigeMfa, configurarMfa: exigeMfa && !usuario.mfaSecret });
+    return res.json({ sucesso: true, ...dados, usuario: perfil(usuario) });
   } catch (error) { return next(error); }
 }
 async function perfilAtual(req, res) {
-  const exigeMfa = mfaRequired() && req.conta.papel === "administrador";
-  return res.json({ sucesso: true, usuario: perfil(req.conta), csrfToken: req.csrfToken,
-    precisaMfa: exigeMfa && !req.sessao.mfaVerificada,
-    configurarMfa: exigeMfa && !req.conta.mfaSecret });
+  return res.json({ sucesso: true, usuario: perfil(req.conta), csrfToken: req.csrfToken });
 }
 async function logout(req, res, next) {
   try { await req.sessao.destroy(); clearCookie(res); return res.json({ sucesso: true }); } catch (error) { return next(error); }
@@ -88,55 +81,4 @@ async function listarContas(req, res, next) {
     return res.json({ sucesso: true, dados: resultado.rows, paginacao: { page, paginas: Math.ceil(resultado.count / 50) } });
   } catch (error) { return next(error); }
 }
-async function iniciarMfa(req, res, next) {
-  try {
-    if (req.conta.mfaSecret) return res.status(409).json({ sucesso: false, mensagem: "Segundo fator já configurado." });
-    // Concurrent page loads must receive the same pending secret.
-    const secret = await sequelize.transaction(async transaction => {
-      const sessao = await Sessao.findByPk(req.sessao.id, { transaction, lock: transaction.LOCK.UPDATE });
-      if (!sessao) { const error = new Error("Sessão expirada."); error.status = 401; throw error; }
-      if (sessao.mfaPendente) return mfa.decrypt(sessao.mfaPendente);
-      const value = new (require("otpauth").Secret)({ size: 20 }).base32;
-      await sessao.update({ mfaPendente: mfa.encrypt(value) }, { transaction });
-      return value;
-    });
-    return res.json({ sucesso: true, segredo: secret, uri: mfa.totp(secret, req.conta.email).toString() });
-  } catch (error) { return next(error); }
-}
-async function confirmarMfa(req, res, next) {
-  try {
-    if (invalid(req, res)) return;
-    let codes;
-    await sequelize.transaction(async transaction => {
-      const usuario = await Usuario.findByPk(req.usuario.sub, { transaction, lock: transaction.LOCK.UPDATE });
-      if (usuario.mfaSecret || !req.sessao.mfaPendente) { const error = new Error("Reinicie a configuração do segundo fator."); error.status = 409; throw error; }
-      const encrypted = req.sessao.mfaPendente;
-      const counter = mfa.counterValido({ ...usuario.get(), mfaSecret: encrypted }, req.body.codigo);
-      if (counter === null) { const error = new Error("Código inválido ou expirado."); error.status = 400; throw error; }
-      const recovery = mfa.recoveryCodes(); codes = recovery.codes;
-      await usuario.update({ mfaSecret: encrypted, mfaLastCounter: counter, mfaRecoveryCodes: recovery.hashes, authVersion: usuario.authVersion + 1 }, { transaction });
-      await Sessao.destroy({ where: { usuarioId: usuario.id, id: { [Op.ne]: req.sessao.id } }, transaction });
-      await req.sessao.update({ versao: usuario.authVersion, mfaVerificada: true, mfaPendente: null }, { transaction });
-    });
-    return res.json({ sucesso: true, codigosRecuperacao: codes });
-  } catch (error) { return next(error); }
-}
-async function verificarMfa(req, res, next) {
-  try {
-    if (invalid(req, res)) return;
-    await sequelize.transaction(async transaction => {
-      const usuario = await Usuario.findByPk(req.usuario.sub, { transaction, lock: transaction.LOCK.UPDATE });
-      if (!usuario.mfaSecret) { const error = new Error("Configure primeiro o segundo fator."); error.status = 409; throw error; }
-      const codigo = req.body.codigo;
-      const counter = mfa.counterValido(usuario, codigo);
-      const hashes = usuario.mfaRecoveryCodes || [];
-      const recovery = hashes.indexOf(mfa.recoveryHash(codigo));
-      if (counter === null && recovery < 0) { const error = new Error("Código inválido, expirado ou já utilizado."); error.status = 401; throw error; }
-      if (counter !== null) await usuario.update({ mfaLastCounter: counter }, { transaction });
-      else await usuario.update({ mfaRecoveryCodes: hashes.filter((_, i) => i !== recovery) }, { transaction });
-      await req.sessao.update({ mfaVerificada: true }, { transaction });
-    });
-    return res.json({ sucesso: true });
-  } catch (error) { return next(error); }
-}
-module.exports = { login, perfilAtual, logout, criarEducador, alterarSenha, situacaoConta, listarContas, iniciarMfa, confirmarMfa, verificarMfa };
+module.exports = { login, perfilAtual, logout, criarEducador, alterarSenha, situacaoConta, listarContas };

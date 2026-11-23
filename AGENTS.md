@@ -10,8 +10,8 @@ Quando a tarefa envolver QR Code, Expo Go, LAN ou teste em celular real, leia e 
 - Use os comandos expo:check, expo:lan ou expo:tunnel. Não entregue localhost, 127.0.0.1 ou 10.0.2.2 como endereço do computador para um aparelho físico.
 - Mantenha SDK 58 e abra o link no Expo Go; não troque silenciosamente por build de desenvolvimento ou por versão diferente de SDK.
 - Não declare homologação física com base em Android Studio, navegador, QR gerado ou teste automatizado. Informe aparelho, rede e operações realmente verificadas; sem acesso ao celular, marque essa etapa como pendente.
-- Por orientação do responsável, mantenha o MFA administrativo temporariamente dispensado nos testes locais: NODE_ENV=development e MFA_REQUIRED=false. Esse também é o padrão atual de development. Não reative MFA como pré-requisito desses testes nem apague fatores/códigos já cadastrados. Para testar o próprio MFA, use MFA_REQUIRED=true em uma sessão de teste específica.
-- Produção exige MFA e recusa MFA_REQUIRED=false. Não desative autenticação por senha, sessões, CSRF, autorização, limites ou verificação TLS. Não publique MySQL nem segredos EXPO_PUBLIC.
+- Por orientação do responsável, o MFA foi removido de todos os ambientes. Login usa email e senha. Não reintroduza autenticador, configuração de fator, variáveis de ativação ou redirecionamento para MFA. A rota /seguranca serve apenas para trocar a senha.
+- Preserve autenticação por senha, sessões, CSRF, autorização, limites e verificação TLS. Não publique MySQL nem segredos EXPO_PUBLIC.
 - Os arquivos temporários do QR ficam em .expo/expo-go e não entram no Git. Mantenha os processos necessários ativos durante a demonstração; registre quando encerrar.
 
 ## Verificação de mudanças
@@ -19,3 +19,5 @@ Quando a tarefa envolver QR Code, Expo Go, LAN ou teste em celular real, leia e 
 Na raiz: npm test, npm run typecheck, npm run lint e npx expo install --check. Para mudanças em código compartilhado/nativo, exporte web/Android/iOS com uma EXPO_PUBLIC_API_URL HTTPS de teste.
 
 Para alterações no backend, rode a suíte com um banco local descartável pelas variáveis TEST_DB_*. Nunca use banco real nos testes. O CI usa MySQL 8.0.
+
+Para botões de voltar, use voltarComFallback de utils/navigation.ts: preserve o histórico existente e substitua pela Home ou /equipe quando não houver tela anterior. Não dispare router.back() sem verificar canGoBack().

@@ -7,7 +7,7 @@ const TOKEN_KEY = 'cinequebrada.auth.token';
 const WEB_SESSION = 'cookie-session';
 let csrfToken: string | null = null;
 export type UsuarioInterno = { id: number; nome: string; email: string; papel: 'administrador' | 'educador'; educadorId?: number };
-export type PerfilSessao = { usuario: UsuarioInterno; precisaMfa: boolean; configurarMfa: boolean; csrfToken: string };
+export type PerfilSessao = { usuario: UsuarioInterno; csrfToken: string };
 function removerTokenLegado() {
   // Only removes credentials left by earlier versions; never stores web credentials.
   if (Platform.OS === 'web') globalThis.localStorage?.removeItem(TOKEN_KEY);
@@ -72,12 +72,12 @@ export async function requisicaoInterna(path: string, token: string, options: Re
   const data = await response.json().catch(() => ({}));
   if (data.csrfToken) csrfToken = data.csrfToken;
   if (!response.ok) {
-    if (response.status === 401 && !['/auth/senha', '/auth/mfa/verificar'].includes(path)) {
+    if (response.status === 401 && path !== '/auth/senha') {
       csrfToken = null;
       if (!web) await SecureStore.deleteItemAsync(TOKEN_KEY);
       removerTokenLegado();
       router.replace('/login');
-    } else if (data.codigo === 'MFA_NECESSARIO') router.replace('/seguranca');
+    }
     const detalhes = Array.isArray(data.erros) ? data.erros.map((erro: { mensagem?: string }) => erro.mensagem).filter(Boolean).join('\n') : '';
     throw new ErroSessao(detalhes || data.mensagem || 'Não foi possível concluir a ação.', response.status, data.codigo);
   }

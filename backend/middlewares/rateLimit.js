@@ -33,6 +33,6 @@ function limitar(nome, maximo, identificar = req => req.ip, janelaMs = 15 * 60 *
 }
 const loginIp = limitar("login-ip", 100);
 const loginConta = limitar("login-conta", 10, req => String(req.body?.email || "").trim().toLowerCase());
-const mfa = limitar("mfa", 10, req => String(req.usuario.sub));
+const senha = limitar("senha", 10, req => String(req.usuario.sub));
 const inscricao = limitar("inscricao", 5);
-module.exports = { limitar, loginIp, loginConta, mfa, inscricao };
+module.exports = { limitar, loginIp, loginConta, senha, inscricao };

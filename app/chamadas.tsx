@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -80,7 +81,7 @@ export default function ChamadasScreen() {
       {lista.participantes.map(p => <View key={p.matriculaId} style={styles.card}><Text style={styles.name}>{p.nome}</Text><View style={styles.actions}><TouchableOpacity onPress={() => marcar(p.matriculaId, 'presente')} style={[styles.choice, p.situacao === 'presente' && styles.selected]}><Text style={[styles.choiceText, p.situacao === 'presente' && styles.selectedText]}>Presente</Text></TouchableOpacity><TouchableOpacity onPress={() => marcar(p.matriculaId, 'ausente')} style={[styles.choice, p.situacao === 'ausente' && styles.selected]}><Text style={[styles.choiceText, p.situacao === 'ausente' && styles.selectedText]}>Ausente</Text></TouchableOpacity></View></View>)}
       <TouchableOpacity style={styles.primary} onPress={salvar} disabled={salvando}><Text style={styles.primaryText}>{salvando ? 'Salvando…' : lista.chamadaId ? 'Salvar alterações' : 'Registrar chamada'}</Text></TouchableOpacity>
     </View>}
-    <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => voltarComFallback(router, '/equipe')}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;
 }
 

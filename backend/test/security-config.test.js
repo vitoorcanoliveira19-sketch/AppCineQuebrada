@@ -1,41 +1,27 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { mfaRequired, validateSecurityConfig } = require("../config/security");
+const { validateSecurityConfig } = require("../config/security");
 
-function configured(mode, value, check) {
-  const previous = { NODE_ENV: process.env.NODE_ENV, MFA_REQUIRED: process.env.MFA_REQUIRED };
+test("obsolete authenticator settings cannot block production startup or require an encryption key", () => {
+  const keys = ["NODE_ENV", "SESSION_SECRET", "WEB_ORIGINS", "MFA_REQUIRED", "MFA_ENCRYPTION_KEY"];
+  const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   try {
-    if (mode === undefined) delete process.env.NODE_ENV;
-    else process.env.NODE_ENV = mode;
-    if (value === undefined) delete process.env.MFA_REQUIRED;
-    else process.env.MFA_REQUIRED = value;
-    check();
+    process.env.NODE_ENV = "production";
+    process.env.SESSION_SECRET = require("node:crypto").randomBytes(48).toString("base64");
+    process.env.WEB_ORIGINS = "https://app.example.invalid";
+    delete process.env.MFA_ENCRYPTION_KEY;
+    validateSecurityConfig();
+    process.env.MFA_ENCRYPTION_KEY = "obsolete-invalid-key";
+    for (const value of ["true", "false", "obsolete"]) {
+      process.env.MFA_REQUIRED = value;
+      validateSecurityConfig();
+    }
+    process.env.WEB_ORIGINS = "http://app.example.invalid";
+    assert.throws(validateSecurityConfig, /HTTPS/);
   } finally {
-    for (const [key, original] of Object.entries(previous)) {
-      if (original === undefined) delete process.env[key];
-      else process.env[key] = original;
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
     }
   }
-}
-
-test("development temporarily defaults to no MFA and can explicitly enable it", () => {
-  for (const value of [undefined, "false"]) configured("development", value, () => assert.equal(mfaRequired(), false));
-  configured("development", "true", () => assert.equal(mfaRequired(), true));
-});
-
-test("production, test, staging and an unspecified environment cannot disable MFA", () => {
-  for (const mode of ["production", "test", "staging", undefined]) {
-    for (const value of [undefined, "true"]) configured(mode, value, () => assert.equal(mfaRequired(), true));
-    configured(mode, "false", () => {
-      assert.throws(mfaRequired, /só é permitido com NODE_ENV=development/);
-      assert.throws(validateSecurityConfig, /só é permitido com NODE_ENV=development/);
-    });
-  }
-});
-
-test("misspelled MFA settings fail configuration validation", () => {
-  for (const value of ["", "0", "1", "FALSE", "disabled"]) configured("development", value, () => {
-    assert.throws(mfaRequired, /deve ser true ou false/);
-    assert.throws(validateSecurityConfig, /deve ser true ou false/);
-  });
 });

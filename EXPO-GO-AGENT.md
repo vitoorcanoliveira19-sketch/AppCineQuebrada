@@ -35,16 +35,7 @@ O proprietário faz a autenticação interativa quando necessária; não pedir q
 
 Use uma base de demonstração ou o ambiente expressamente designado para o teste. Configure backend/.env a partir de backend/.env.example e siga SECURITY-UPGRADE.md para migração, segredos e contas.
 
-**Política temporária dos testes locais:** mantenha o MFA administrativo dispensado, conforme solicitado pelo responsável. O backend já usa esse comportamento por padrão quando NODE_ENV=development. No backend/.env, deixe explícito:
-
-~~~dotenv
-NODE_ENV=development
-MFA_REQUIRED=false
-~~~
-
-O administrador entra com email e senha, sem etapa de autenticador. Essa configuração vale tanto para Expo Go em celular real quanto para navegador/emulador, pois é aplicada na API. Não há variável EXPO_PUBLIC para desabilitar MFA. Não apague segredos TOTP nem códigos de recuperação existentes. A dispensa não marca a sessão como tendo verificado MFA.
-
-Ao atualizar um .env existente, edite somente essas chaves e reinicie o backend; não sobrescreva os demais valores. Para exercitar o segundo fator especificamente, use MFA_REQUIRED=true e reinicie. Em produção o MFA permanece obrigatório e MFA_REQUIRED=false impede a inicialização. Ver [configuração de testes locais](SECURITY-UPGRADE.md#testes-locais-com-mfa-temporariamente-dispensado).
+**Login atual:** email e senha em todos os ambientes. O MFA foi removido por solicitação do responsável; não há token de autenticador nem variável para reativá-lo. Para instalações antigas, execute a migração descrita em SECURITY-UPGRADE.md antes de iniciar a API. Ela remove somente os campos antigos do autenticador e preserva contas, senhas e dados do projeto.
 
 ~~~powershell
 # Executar os comandos do backend dentro da pasta backend
@@ -54,7 +45,7 @@ npm run migrate
 npm start
 ~~~
 
-Mantenha esse terminal aberto. BIND_HOST=0.0.0.0 permite o acesso pela rede; PORT normalmente é 3001. O frontend nunca deve receber DB_PASSWORD, SESSION_SECRET ou MFA_ENCRYPTION_KEY.
+Mantenha esse terminal aberto. BIND_HOST=0.0.0.0 permite o acesso pela rede; PORT normalmente é 3001. O frontend nunca deve receber DB_PASSWORD ou SESSION_SECRET.
 
 Não sobrescrever um .env existente, recriar o banco ou executar seed sobre dados reais. seed:validation é opcional, só para demonstração, e recusa NODE_ENV=production. Um educador precisa de cadastro ativo e vínculo com sua conta; criar só a conta não dá acesso às turmas.
 
@@ -160,7 +151,7 @@ Use um aparelho físico, não Android Studio, navegador do PC ou apenas um simul
 2. Abrir o app pelo Expo Go e conferir que o SDK 58 é aceito.
 3. Enviar uma inscrição fictícia; conferir a resposta e o registro pendente na API.
 4. Entrar com um educador de teste vinculado; consultar suas turmas e salvar uma chamada fictícia.
-5. Entrar como administrador de teste com email e senha; confirmar acesso direto à equipe, sem exigência de MFA no ambiente development. Registrar MFA dispensado para testes locais. Se a tarefa for testar o próprio MFA, ativar MFA_REQUIRED=true nessa execução e validar o autenticador separadamente.
+5. Entrar como administrador de teste com email e senha; confirmar acesso direto à equipe, sem tela de autenticador. Abrir os menus, recarregar uma rota interna e testar Voltar, inclusive quando ela não tiver histórico anterior.
 6. Sair e confirmar que a sessão anterior não volta a autorizar operações.
 7. Para afirmar suporte fora da LAN, repetir com o Wi-Fi do celular desligado. Sucesso na mesma rede não comprova o 4G/5G.
 
@@ -178,8 +169,8 @@ Sem acesso ao celular, entregar as verificações técnicas e marcar a homologa�
 | SDK incompatível | Instalar Expo Go que suporte SDK 58; não mascarar o erro alterando sdkVersion no manifesto |
 | iPhone pede conta | Confirmar a mesma conta no CLI/Expo Go e permissão de rede local |
 | 401 sem login | Esperado para /auth/me; validar login pelo fluxo normal |
-| MFA aparece nos testes locais | Conferir NODE_ENV=development e MFA_REQUIRED=false no backend, variáveis herdadas do terminal e reinício da API; não remover middleware nem alterar o banco |
-| 403 nas operações da equipe | Conferir papel, vínculo de educador e CSRF; com MFA_REQUIRED=true, concluir também o segundo fator |
+| Cliente ainda pede autenticador | Atualizar API e frontend para a revisão atual, executar migração, reiniciar a API e o Metro com --clear e recarregar o app; o código atual não usa MFA |
+| 403 nas operações da equipe | Conferir papel, vínculo de educador e CSRF |
 | 429 | Respeitar Retry-After; não desligar os limites para repetir testes |
 | API retorna HTML, redirect ou erro TLS | Corrigir o túnel/reverse proxy/certificado; não usar rejectUnauthorized=false |
 | Funciona no Wi-Fi e falha no 4G | A API também precisa ser pública por HTTPS; validar ambos os túneis |
@@ -190,6 +181,6 @@ Para preview web por IP, configure WEB_ORIGINS com a origem exata apropriada; n�
 
 ## 9. Relatório do agente
 
-Entregar: commit/branch, SDK/versão Expo Go verificados, modo escolhido, URL/link do QR, API utilizada, processos que precisam permanecer ativos, resultado do preflight, estado do MFA (dispensado nos testes locais por padrão), evidências dos testes e validade temporária. Não incluir senhas, tokens, chaves MFA ou dados pessoais em logs e capturas.
+Entregar: commit/branch, SDK/versão Expo Go verificados, modo escolhido, URL/link do QR, API utilizada, processos que precisam permanecer ativos, resultado do preflight, evidências dos testes e validade temporária. Não incluir senhas, tokens ou dados pessoais em logs e capturas.
 
 Distinguir: **código e endereços verificados**, **sessão disponível agora** e **aparelho físico homologado**. Se o processo estiver parado, não entregar um QR antigo como ativo. Para publicação permanente, seguir o plano de hospedagem e distribuição; Expo Go/Metro não substituem esse trabalho.

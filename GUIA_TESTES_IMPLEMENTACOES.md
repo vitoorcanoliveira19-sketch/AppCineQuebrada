@@ -1,4 +1,4 @@
-**Segurança:** execute primeiro a migração e confira [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md). JWTs antigos são invalidados. Nos testes locais, mantenha `NODE_ENV=development` e `MFA_REQUIRED=false`: o MFA administrativo está temporariamente dispensado. Produção continua exigindo o segundo fator.
+**Segurança:** execute primeiro a migração e confira [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md). JWTs antigos são invalidados. O MFA foi removido; o acesso de todos os usuários usa email e senha em qualquer ambiente.
 
 # Guia rápido de testes
 
@@ -37,7 +37,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
    notepad .env
    ```
 
-   Em `backend/.env`, defina `DB_PASSWORD=local-only-change-me` e troque `SESSION_SECRET` por uma frase aleatória com pelo menos 32 caracteres. Para os testes locais, mantenha `NODE_ENV=development` e `MFA_REQUIRED=false`, inclusive se o arquivo já existia. Reinicie a API após mudar essas chaves. Salve o arquivo. Ele é local e não deve ser compartilhado.
+   Em `backend/.env`, defina `DB_PASSWORD=local-only-change-me` e troque `SESSION_SECRET` por uma frase aleatória com pelo menos 32 caracteres. Para os testes locais, mantenha `NODE_ENV=development`. Não há configuração de MFA. Em bases antigas, execute `npm run migrate` e reinicie a API com o código atualizado. Salve o arquivo. Ele é local e não deve ser compartilhado.
 
 4. Inicie o backend em uma janela do PowerShell. Entre diretamente na pasta do backend:
 
@@ -73,7 +73,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 
 ## 2. Fazer login e preparar os dados
 
-1. Na tela inicial do app, toque em **Equipe** na barra inferior, à direita. Na tela **Acesso da equipe**, informe o email e a senha escolhidos no passo 5 da preparação e toque em **Entrar**. No ambiente local configurado acima, o acesso segue direto para a equipe sem etapa MFA.
+1. Na tela inicial do app, toque em **Equipe** na barra inferior, à direita. Na tela **Acesso da equipe**, informe o email e a senha escolhidos no passo 5 da preparação e toque em **Entrar**. O acesso segue direto para a equipe sem etapa de autenticador.
 2. Em **Cadastros**, crie dois registros de educador com emails fictícios diferentes, uma atividade ativa e uma sala ativa. Crie também uma atividade ou sala inativa para testar validações.
 3. Crie o usuário de acesso de um educador: o registro de educador em **Cadastros** não cria login. Em uma janela PowerShell na pasta `novoapp`, rode o bloco abaixo. Use o mesmo email do registro de educador e escolha uma senha de pelo menos 12 caracteres:
 

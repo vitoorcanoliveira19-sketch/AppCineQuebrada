@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -102,7 +103,7 @@ export default function AdminMatriculasScreen() {
     </View>
     <Text style={styles.section}>Matrículas existentes ({matriculas.length})</Text>{matriculas.length === 0 ? <Text style={styles.empty}>Nenhuma matrícula encontrada para os filtros selecionados.</Text> : matriculas.map(m => <View key={m.id} style={styles.card}><Text style={styles.name}>{m.participante?.nome || `Participante #${m.participanteId}`}</Text><Text style={styles.detail}>{m.participante?.email || ''}</Text><Text style={styles.detail}>Turma: {m.turma?.nome || `#${m.turmaId}`}{m.turma?.atividade?.nome ? ` · ${m.turma.atividade.nome}` : ''}</Text><Text style={styles.status}>Situação: {m.situacao}</Text><Text style={styles.detail}>Matriculado em: {new Date(m.matriculadaEm).toLocaleDateString('pt-BR')}</Text>{m.encerradaEm && <Text style={styles.detail}>Encerrada em: {new Date(m.encerradaEm).toLocaleDateString('pt-BR')}</Text>}<TouchableOpacity style={styles.secondary} onPress={() => alterar(m, m.situacao === 'ativa' ? 'encerrada' : 'ativa')}><Text style={styles.secondaryText}>{m.situacao === 'ativa' ? 'Encerrar matrícula' : 'Reativar matrícula'}</Text></TouchableOpacity></View>)}
     {!!erro && <Text accessibilityRole="alert" style={styles.error}>{erro}</Text>}{!!aviso && <Text style={styles.success}>{aviso}</Text>}
-    <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>Voltar à área da equipe</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => voltarComFallback(router, '/equipe')}><Text style={styles.back}>Voltar à área da equipe</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;
 }
 

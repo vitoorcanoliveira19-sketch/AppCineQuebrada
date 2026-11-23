@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -80,7 +81,7 @@ export default function AdminCadastrosScreen() {
     </View>
     <Text style={styles.section}>Cadastros existentes</Text>
     {carregando ? <ActivityIndicator color="#e8bd39" /> : registros.length === 0 ? <Text style={styles.empty}>Nenhum cadastro encontrado.</Text> : registros.map((item) => { const ativo = tipo === 'educadores' ? item.ativo !== false : item.ativa !== false; return <View key={item.id} style={styles.card}><Text style={styles.name}>{item.nome}</Text>{tipo === 'atividades' && !!item.descricao && <Text style={styles.detail}>{item.descricao}</Text>}{tipo === 'educadores' && <Text style={styles.detail}>{item.email} · {item.contato}</Text>}<Text style={styles.status}>{ativo ? 'Ativo' : 'Inativo'}</Text><View style={styles.actions}><TouchableOpacity style={styles.secondary} onPress={() => prepararEdicao(item)}><Text style={styles.actionText}>Editar</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={() => alternar(item)}><Text style={styles.actionText}>{ativo ? 'Inativar' : 'Reativar'}</Text></TouchableOpacity></View></View>; })}
-    <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>Voltar à área da equipe</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => voltarComFallback(router, '/equipe')}><Text style={styles.back}>Voltar à área da equipe</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;
 }
 

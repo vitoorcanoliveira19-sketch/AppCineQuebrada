@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
@@ -71,7 +72,7 @@ export default function HistoricoFrequenciaScreen() {
       {resultado.registros.map(r => <View key={r.id} style={styles.card}><Text style={styles.name}>{new Date(`${r.data}T12:00:00`).toLocaleDateString('pt-BR')} · {r.participante}</Text><Text style={styles.detail}>{r.atividade} · {r.turma}</Text><Text style={[styles.status, r.situacao === 'ausente' && styles.absent]}>{r.situacao === 'presente' ? 'Presença' : 'Ausência'}</Text></View>)}
       <Text style={styles.note}>Os totais contam somente marcações já registradas. Aulas sem chamada salva não são incluídas nem consideradas faltas.</Text>
     </View>}
-    <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => voltarComFallback(router, '/equipe')}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;
 }
 

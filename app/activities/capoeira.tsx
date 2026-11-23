@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -17,7 +18,7 @@ export default function CapoeiraScreen() {
           <Text style={styles.cadastroButtonText}>QUERO ME CADASTRAR!</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => voltarComFallback(router, '/')}>
           <Text style={styles.backButtonText}>Voltar</Text>
         </TouchableOpacity>
       </View>

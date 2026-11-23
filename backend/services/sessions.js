@@ -23,7 +23,7 @@ async function criarSessao(usuario, cliente, res) {
   const token = randomBytes(32).toString("base64url");
   const now = new Date();
   await Sessao.create({ id: hash(token), usuarioId: usuario.id, versao: usuario.authVersion,
-    cliente, mfaVerificada: false, expiraEm: new Date(now.getTime() + SESSION_SECONDS * 1000), vistaEm: now });
+    cliente, expiraEm: new Date(now.getTime() + SESSION_SECONDS * 1000), vistaEm: now });
   if (cliente === "web") setCookie(res, token);
   return { ...(cliente === "native" ? { token } : {}), csrfToken: csrf(token), expiraEm: SESSION_SECONDS };
 }

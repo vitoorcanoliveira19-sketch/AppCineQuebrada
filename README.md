@@ -2,9 +2,9 @@
 
 **QR no Expo Go SDK 58 e celular real:** siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md). Use `npm run expo:lan -- --host IP-DO-WIFI` ou `npm run expo:tunnel -- --api https://SUA-API`. O lançador verifica a API e gera o QR em `.expo/expo-go/`.
 
-**Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, MFA administrativo e novos clientes Expo.
+**Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, login por email/senha e novos clientes Expo.
 
-**Testes locais por enquanto:** MFA administrativo dispensado em `NODE_ENV=development` (padrão `MFA_REQUIRED=false`). Login com email e senha permanece obrigatório. Produção exige MFA e recusa essa dispensa; veja [a configuração](SECURITY-UPGRADE.md#testes-locais-com-mfa-temporariamente-dispensado).
+**Login:** o MFA foi removido em todos os ambientes. Administradores e educadores entram com email e senha. Em uma instalação antiga, aplique a [migração de remoção](SECURITY-UPGRADE.md#remoção-do-autenticador-em-instalações-existentes) e reinicie API e frontend antes dos testes.
 
 Projeto CineQuebrada com frontend Expo/React Native e backend Node.js/Express com persistencia em MySQL. O formulario publico registra pedidos de inscricao para analise da equipe.
 
@@ -95,7 +95,7 @@ SESSION_SECRET=segredo-aleatorio-com-pelo-menos-32-caracteres
 
 Mantenha `SESSION_SECRET` fora do repositório e use pelo menos 32 caracteres aleatórios. PowerShell pode gerar um valor com: `$bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Fill($bytes); [Convert]::ToBase64String($bytes)`. Não registre o segredo em logs.
 
-O backend falha na inicialização se faltar uma variável de banco ou se `SESSION_SECRET` tiver menos de 32 caracteres. O corpo JSON da API é limitado a 32 KB. Em produção, configure `NODE_ENV=production` no ambiente do container. Configure WEB_ORIGINS com as origens HTTPS exatas e MFA_ENCRYPTION_KEY em produção; veja SECURITY-UPGRADE.md para cookies/CSRF e migração.
+O backend falha na inicialização se faltar uma variável de banco ou se `SESSION_SECRET` tiver menos de 32 caracteres. O corpo JSON da API é limitado a 32 KB. Em produção, configure `NODE_ENV=production` no ambiente do container. Configure WEB_ORIGINS com as origens HTTPS exatas em produção; veja SECURITY-UPGRADE.md para cookies/CSRF e migração.
 
 ### Primeiro administrador
 

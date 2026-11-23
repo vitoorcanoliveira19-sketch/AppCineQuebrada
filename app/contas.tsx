@@ -28,7 +28,6 @@ export default function ContasScreen() {
         const saved = await lerToken();
         if (!saved) { router.replace('/login'); return; }
         const perfil = await requisicaoInterna('/auth/me', saved) as PerfilSessao;
-        if (perfil.precisaMfa) { router.replace('/seguranca'); return; }
         if (perfil.usuario.papel !== 'administrador') { router.replace('/equipe'); return; }
         setToken(saved);
         const data = await requisicaoInterna('/admin/cadastros/educadores', saved) as { dados: Educador[] };

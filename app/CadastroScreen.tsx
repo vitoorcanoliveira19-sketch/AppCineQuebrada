@@ -1,3 +1,4 @@
+import { voltarComFallback } from '@/utils/navigation';
 import { Picker } from "@react-native-picker/picker";
 import CheckBox from "expo-checkbox";
 import { useRouter, useLocalSearchParams } from "expo-router";
@@ -45,7 +46,7 @@ export default function CadastroScreen() {
 
   // Função de Voltar
   const handleGoBack = () => {
-    router.back();
+    voltarComFallback(router, '/');
   };
 
   // Função de Submissão com Validação Básica

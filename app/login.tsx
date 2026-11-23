@@ -1,7 +1,8 @@
+import { voltarComFallback } from '@/utils/navigation';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { entrar as autenticar, lerToken, requisicaoInterna, PerfilSessao } from '@/services/auth';
+import { entrar as autenticar, lerToken, requisicaoInterna } from '@/services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,8 +17,8 @@ export default function LoginScreen() {
       try {
         const token = await lerToken();
         if (!token) return;
-        const perfil = await requisicaoInterna('/auth/me', token) as PerfilSessao;
-        if (ativo) router.replace(perfil.precisaMfa ? '/seguranca' : '/equipe');
+        await requisicaoInterna('/auth/me', token);
+        if (ativo) router.replace('/equipe');
       } catch { /* Token expirado: permanece na tela de login. */ }
     })();
     return () => { ativo = false; };
@@ -26,9 +27,9 @@ export default function LoginScreen() {
   async function entrar() {
     setErro(''); setCarregando(true);
     try {
-      const perfil = await autenticar(email, senha);
+      await autenticar(email, senha);
       setSenha('');
-      router.replace(perfil.precisaMfa ? '/seguranca' : '/equipe');
+      router.replace('/equipe');
     } catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível conectar ao servidor.'); }
     finally { setCarregando(false); }
   }
@@ -39,7 +40,7 @@ export default function LoginScreen() {
     <Text style={styles.label}>Senha</Text><TextInput style={styles.input} value={senha} onChangeText={setSenha} secureTextEntry autoComplete="current-password" onSubmitEditing={entrar} />
     {!!erro && <Text accessibilityRole="alert" style={styles.error}>{erro}</Text>}
     <TouchableOpacity style={styles.button} onPress={entrar} disabled={carregando}><Text style={styles.buttonText}>{carregando ? 'Entrando…' : 'Entrar'}</Text></TouchableOpacity>
-    <TouchableOpacity onPress={() => router.back()}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
+    <TouchableOpacity onPress={() => voltarComFallback(router, '/')}><Text style={styles.back}>Voltar</Text></TouchableOpacity>
   </View></SafeAreaView>;
 }
 

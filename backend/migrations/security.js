@@ -1,11 +1,11 @@
 const VERSION = "001-security-sessions-educator-link";
-async function migrar({ sequelize, Usuario, Educador }) {
+async function migrarVinculos({ sequelize, Usuario, Educador }) {
   const qi = sequelize.getQueryInterface();
   await sequelize.query("CREATE TABLE IF NOT EXISTS Migracao (nome VARCHAR(100) PRIMARY KEY)");
   const [aplicadas] = await sequelize.query("SELECT nome FROM Migracao WHERE nome = :nome", { replacements: { nome: VERSION } });
   if (aplicadas.length) return;
   const columns = await qi.describeTable("Usuario");
-  for (const field of ["educadorId", "authVersion", "mfaSecret", "mfaLastCounter", "mfaRecoveryCodes"]) {
+  for (const field of ["educadorId", "authVersion"]) {
     const definition = Usuario.rawAttributes[field];
     if (!columns[definition.field]) await qi.addColumn("Usuario", definition.field, definition);
   }
@@ -24,10 +24,15 @@ async function migrar({ sequelize, Usuario, Educador }) {
   }
   await sequelize.query("INSERT INTO Migracao (nome) VALUES (:nome)", { replacements: { nome: VERSION } });
 }
+async function migrar(models) {
+  await migrarVinculos(models);
+  await require("./remove-mfa").migrar(models.sequelize);
+}
 async function verificar(sequelize) {
   try {
-    const [rows] = await sequelize.query("SELECT nome FROM Migracao WHERE nome = :nome", { replacements: { nome: VERSION } });
-    if (!rows.length) throw new Error("migration");
+    const versions = [VERSION, require("./remove-mfa").VERSION];
+    const [rows] = await sequelize.query("SELECT nome FROM Migracao WHERE nome IN (:nomes)", { replacements: { nomes: versions } });
+    if (rows.length !== versions.length) throw new Error("migration");
     await sequelize.query("SELECT id FROM Sessao LIMIT 0");
     await sequelize.query("SELECT chave FROM LimiteAcesso LIMIT 0");
   } catch { throw new Error("Execute npm run migrate com a credencial de migração antes de iniciar o backend."); }

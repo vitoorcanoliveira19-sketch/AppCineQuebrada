@@ -2,6 +2,8 @@
 
 Este projeto usa Expo SDK 58, Expo Router e backend Express/MySQL. Preserve as proteções descritas em SECURITY-UPGRADE.md.
 
+Para iniciar o desenvolvimento, siga STARTUP.md. Os atalhos iniciar.ps1 (raiz e backend) usam scripts/dev.cjs; npm run dev na raiz inicia API + web. Preserve .env existente e encerre apenas os processos iniciados pelo lançador. Use configuração isolada e banco descartável nos testes de startup.
+
 ## Disponibilização por QR no Expo Go
 
 Quando a tarefa envolver QR Code, Expo Go, LAN ou teste em celular real, leia e siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md).

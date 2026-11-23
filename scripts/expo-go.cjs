@@ -70,7 +70,7 @@ async function main() {
     if (exited) return;
     if (!link) throw new Error('O Metro não forneceu o QR em 120 segundos. Confira login Expo, porta 8081 e conectividade. Nenhum QR foi declarado pronto.');
     const svg = await require('qrcode').toString(link, { type: 'svg', errorCorrectionLevel: 'M', margin: 4 });
-    const session = { status: 'running', sdk: 58, mode: plan.mode, metroPid: child.pid, expoGoUrl: link, apiUrl: plan.api, createdAt: new Date().toISOString(), physicalDeviceTest: 'pending' };
+    const session = { status: 'running', sdk: 58, mode: plan.mode, launcherPid: process.pid, metroPid: child.pid, expoGoUrl: link, apiUrl: plan.api, createdAt: new Date().toISOString(), physicalDeviceTest: 'pending' };
     fs.writeFileSync(path.join(output, 'qr.svg'), svg);
     fs.writeFileSync(path.join(output, 'session.json'), JSON.stringify(session, null, 2) + '\n');
     const escape = value => value.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);

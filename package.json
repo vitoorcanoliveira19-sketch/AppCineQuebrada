@@ -14,7 +14,13 @@
     "start:offline": "expo start --go --offline",
     "expo:lan": "node scripts/expo-go.cjs --mode lan",
     "expo:tunnel": "node scripts/expo-go.cjs --mode tunnel",
-    "expo:check": "node scripts/expo-go.cjs --check"
+    "expo:check": "node scripts/expo-go.cjs --check",
+    "dev": "node scripts/dev.cjs all",
+    "dev:api": "node scripts/dev.cjs api",
+    "dev:web": "node scripts/dev.cjs web",
+    "dev:lan": "node scripts/dev.cjs lan",
+    "dev:setup": "node scripts/dev.cjs setup",
+    "dev:migrate": "node scripts/dev.cjs migrate"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

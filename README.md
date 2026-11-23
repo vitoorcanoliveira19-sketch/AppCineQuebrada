@@ -1,5 +1,7 @@
 # NovoApp
 
+**Startup para o dev:** na raiz, execute .\iniciar.ps1 ou npm run dev para API + web. Dentro de backend, .\iniciar.ps1 inicia a API. Na primeira vez, use -Servico preparar e configure o banco. Guia: [STARTUP.md](STARTUP.md).
+
 **QR no Expo Go SDK 58 e celular real:** siga [EXPO-GO-AGENT.md](EXPO-GO-AGENT.md). Use `npm run expo:lan -- --host IP-DO-WIFI` ou `npm run expo:tunnel -- --api https://SUA-API`. O lançador verifica a API e gera o QR em `.expo/expo-go/`.
 
 **Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, login por email/senha e novos clientes Expo.

@@ -2,12 +2,28 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Iniciar API + web (desenvolvimento)",
+      "type": "npm",
+      "script": "dev",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
       "label": "Rodar app (Expo)",
       "type": "npm",
       "script": "start",
       "group": {
         "kind": "build",
-        "isDefault": true
+        "isDefault": false
       },
       "isBackground": true,
       "problemMatcher": {
@@ -80,6 +96,16 @@
       "type": "npm",
       "script": "expo:lan",
       "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Preparar dependências e configuração local",
+      "type": "npm",
+      "script": "dev:setup",
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",

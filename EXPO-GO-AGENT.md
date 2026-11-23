@@ -4,6 +4,8 @@ Este é o procedimento para um agente disponibilizar uma sessão de desenvolvime
 
 A versão alvo é o **SDK 58**; o número de versão comercial do aplicativo Expo Go pode ser diferente. Um QR de desenvolvimento depende dos processos em execução e não é uma publicação permanente da ONG.
 
+Atalho para iniciar API e QR juntos, depois da preparação de [STARTUP.md](STARTUP.md): na raiz, use .\iniciar.ps1 -Servico celular -IP IP-DO-WIFI -LimparCache ou npm run dev:lan -- --host IP-DO-WIFI --clear. Os comandos expo:lan/expo:tunnel das próximas seções continuam disponíveis para iniciar somente o Expo com uma API já funcionando.
+
 ## 1. Preparar e conferir o ambiente
 
 Na raiz real do repositório AppCineQuebrada:

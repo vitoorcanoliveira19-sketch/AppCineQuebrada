@@ -4,6 +4,8 @@
 
 **Atualização de segurança:** leia [SECURITY-UPGRADE.md](SECURITY-UPGRADE.md) antes de iniciar ou publicar esta revisão. Inclui migração do banco, sessões revogáveis, MFA administrativo e novos clientes Expo.
 
+**Testes locais por enquanto:** MFA administrativo dispensado em `NODE_ENV=development` (padrão `MFA_REQUIRED=false`). Login com email e senha permanece obrigatório. Produção exige MFA e recusa essa dispensa; veja [a configuração](SECURITY-UPGRADE.md#testes-locais-com-mfa-temporariamente-dispensado).
+
 Projeto CineQuebrada com frontend Expo/React Native e backend Node.js/Express com persistencia em MySQL. O formulario publico registra pedidos de inscricao para analise da equipe.
 
 ## Estrutura

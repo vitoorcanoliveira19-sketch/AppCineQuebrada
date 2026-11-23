@@ -22,6 +22,8 @@ spec:
           env:
             - name: NODE_ENV
               value: development
+            - name: MFA_REQUIRED
+              value: "false"
             - name: PORT
               valueFrom:
                 configMapKeyRef:

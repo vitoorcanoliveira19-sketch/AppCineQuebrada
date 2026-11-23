@@ -8,7 +8,8 @@ dotenv.config();
 const PORT = process.env.PORT || 3001;
 const BIND_HOST = process.env.BIND_HOST || "0.0.0.0";
 
-require("./config/security").validateSecurityConfig();
+const { validateSecurityConfig, mfaRequired } = require("./config/security");
+validateSecurityConfig();
 
 const startServer = async () => {
   try {
@@ -19,6 +20,7 @@ const startServer = async () => {
 
     app.listen(PORT, BIND_HOST, () => {
       console.log(`Servidor backend em execucao na porta ${PORT}.`);
+      console.log(mfaRequired() ? "MFA administrativo: obrigatório." : "MFA administrativo: desabilitado temporariamente para testes locais (development).");
     });
   } catch (error) {
     console.error("Falha ao iniciar o backend:", error.name || "Erro");

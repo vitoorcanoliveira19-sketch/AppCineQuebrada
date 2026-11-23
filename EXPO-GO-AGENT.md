@@ -33,7 +33,18 @@ O proprietário faz a autenticação interativa quando necessária; não pedir q
 
 ## 2. Preparar o backend
 
-Use uma base de demonstração ou o ambiente expressamente designado para o teste. Configure backend/.env a partir de backend/.env.example e siga SECURITY-UPGRADE.md para migração, segredos, contas e MFA.
+Use uma base de demonstração ou o ambiente expressamente designado para o teste. Configure backend/.env a partir de backend/.env.example e siga SECURITY-UPGRADE.md para migração, segredos e contas.
+
+**Política temporária dos testes locais:** mantenha o MFA administrativo dispensado, conforme solicitado pelo responsável. O backend já usa esse comportamento por padrão quando NODE_ENV=development. No backend/.env, deixe explícito:
+
+~~~dotenv
+NODE_ENV=development
+MFA_REQUIRED=false
+~~~
+
+O administrador entra com email e senha, sem etapa de autenticador. Essa configuração vale tanto para Expo Go em celular real quanto para navegador/emulador, pois é aplicada na API. Não há variável EXPO_PUBLIC para desabilitar MFA. Não apague segredos TOTP nem códigos de recuperação existentes. A dispensa não marca a sessão como tendo verificado MFA.
+
+Ao atualizar um .env existente, edite somente essas chaves e reinicie o backend; não sobrescreva os demais valores. Para exercitar o segundo fator especificamente, use MFA_REQUIRED=true e reinicie. Em produção o MFA permanece obrigatório e MFA_REQUIRED=false impede a inicialização. Ver [configuração de testes locais](SECURITY-UPGRADE.md#testes-locais-com-mfa-temporariamente-dispensado).
 
 ~~~powershell
 # Executar os comandos do backend dentro da pasta backend
@@ -149,7 +160,7 @@ Use um aparelho físico, não Android Studio, navegador do PC ou apenas um simul
 2. Abrir o app pelo Expo Go e conferir que o SDK 58 é aceito.
 3. Enviar uma inscrição fictícia; conferir a resposta e o registro pendente na API.
 4. Entrar com um educador de teste vinculado; consultar suas turmas e salvar uma chamada fictícia.
-5. Entrar como administrador e concluir MFA; confirmar o fluxo sem desabilitar o segundo fator.
+5. Entrar como administrador de teste com email e senha; confirmar acesso direto à equipe, sem exigência de MFA no ambiente development. Registrar MFA dispensado para testes locais. Se a tarefa for testar o próprio MFA, ativar MFA_REQUIRED=true nessa execução e validar o autenticador separadamente.
 6. Sair e confirmar que a sessão anterior não volta a autorizar operações.
 7. Para afirmar suporte fora da LAN, repetir com o Wi-Fi do celular desligado. Sucesso na mesma rede não comprova o 4G/5G.
 
@@ -167,7 +178,8 @@ Sem acesso ao celular, entregar as verificações técnicas e marcar a homologa�
 | SDK incompatível | Instalar Expo Go que suporte SDK 58; não mascarar o erro alterando sdkVersion no manifesto |
 | iPhone pede conta | Confirmar a mesma conta no CLI/Expo Go e permissão de rede local |
 | 401 sem login | Esperado para /auth/me; validar login pelo fluxo normal |
-| 403 ou MFA pendente | Seguir autenticação, vínculo de educador e MFA; não remover middleware |
+| MFA aparece nos testes locais | Conferir NODE_ENV=development e MFA_REQUIRED=false no backend, variáveis herdadas do terminal e reinício da API; não remover middleware nem alterar o banco |
+| 403 nas operações da equipe | Conferir papel, vínculo de educador e CSRF; com MFA_REQUIRED=true, concluir também o segundo fator |
 | 429 | Respeitar Retry-After; não desligar os limites para repetir testes |
 | API retorna HTML, redirect ou erro TLS | Corrigir o túnel/reverse proxy/certificado; não usar rejectUnauthorized=false |
 | Funciona no Wi-Fi e falha no 4G | A API também precisa ser pública por HTTPS; validar ambos os túneis |
@@ -178,6 +190,6 @@ Para preview web por IP, configure WEB_ORIGINS com a origem exata apropriada; n�
 
 ## 9. Relatório do agente
 
-Entregar: commit/branch, SDK/versão Expo Go verificados, modo escolhido, URL/link do QR, API utilizada, processos que precisam permanecer ativos, resultado do preflight, evidências dos testes e validade temporária. Não incluir senhas, tokens, chaves MFA ou dados pessoais em logs e capturas.
+Entregar: commit/branch, SDK/versão Expo Go verificados, modo escolhido, URL/link do QR, API utilizada, processos que precisam permanecer ativos, resultado do preflight, estado do MFA (dispensado nos testes locais por padrão), evidências dos testes e validade temporária. Não incluir senhas, tokens, chaves MFA ou dados pessoais em logs e capturas.
 
 Distinguir: **código e endereços verificados**, **sessão disponível agora** e **aparelho físico homologado**. Se o processo estiver parado, não entregar um QR antigo como ativo. Para publicação permanente, seguir o plano de hospedagem e distribuição; Expo Go/Metro não substituem esse trabalho.

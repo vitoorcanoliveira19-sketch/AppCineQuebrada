@@ -9,7 +9,7 @@ Base atualizada de `main`: `68c2816`. Estas mudanças implementam autorização,
 3. Com a aplicação parada, execute `npm run migrate` em `backend` usando a credencial de migração. A migração cria as tabelas de sessão/limites e acrescenta campos ao usuário. Ela não apaga cadastros, matrículas ou chamadas.
 4. Confira os vínculos de educadores. O preenchimento inicial usa apenas correspondências únicas de email normalizado. Contas sem correspondência permanecem sem acesso às turmas. Depois da migração, emails deixam de determinar autorização.
 5. Inicie o backend. Em produção ele verifica a migração e não executa sincronização de schema automaticamente.
-6. Publique os clientes atualizados. JWTs antigos deixam de ser aceitos: todos precisam entrar novamente. Administradores configuram MFA antes de acessar funções administrativas.
+6. Publique os clientes atualizados. JWTs antigos deixam de ser aceitos: todos precisam entrar novamente. Em produção, administradores configuram MFA antes de acessar funções administrativas. Nos testes locais em development, a exigência está temporariamente dispensada conforme a seção abaixo.
 
 O backend continua aceitando `Authorization: Bearer <token>` nos aplicativos, mas o token agora é aleatório e revogável no servidor. A resposta web não contém token de autenticação. Clientes móveis antigos podem usar a resposta nativa para educadores, mas o aplicativo deve ser atualizado para MFA administrativo e revogação correta no logout. Distribua uma nova compilação nativa após atualizar o Expo; uma atualização somente de JavaScript não atualiza os módulos nativos.
 
@@ -19,6 +19,7 @@ O backend continua aceitando `Authorization: Bearer <token>` nos aplicativos, ma
 | --- | --- |
 | `SESSION_SECRET` | Segredo aleatório com pelo menos 32 caracteres para HMAC de CSRF, recuperação e limites. `JWT_SECRET` é aceito temporariamente como nome legado. |
 | `MFA_ENCRYPTION_KEY` | Chave aleatória de exatamente 32 bytes em base64 para AES-256-GCM. Obrigatória em produção. |
+| `MFA_REQUIRED` | Em `NODE_ENV=development`, padrão temporário `false` para testes locais; use `true` para testar MFA. Em qualquer outro ambiente, MFA é obrigatório e `false` é recusado. Aceita somente `true` ou `false`. |
 | `WEB_ORIGINS` | Origens exatas separadas por vírgula, por exemplo `https://ong.example.org`. HTTPS obrigatório em produção. |
 | `NODE_ENV` | `production` na hospedagem. O manifesto Minikube continua explicitamente de desenvolvimento. |
 | `TRUST_PROXY` | Opcional: endereços/sub-redes exatos dos proxies confiáveis. Não use confiança irrestrita nem exponha a porta interna diretamente. |
@@ -39,11 +40,36 @@ Não altere essas chaves casualmente: a chave MFA é necessária para ler os fat
 - Aplicativos usam SecureStore e Bearer. Apenas hashes SHA-256 dos tokens são armazenados no banco.
 - `POST /auth/logout` revoga a sessão no banco. Troca/redefinição de senha e bloqueio revogam todas as sessões.
 - Se logout falhar por falta de rede, a interface mostra o erro em vez de afirmar que houve revogação.
-- `GET /auth/me` pode informar MFA pendente. Nenhuma rota administrativa aceita a sessão administrativa antes da verificação.
+- `GET /auth/me` pode informar MFA pendente. Quando a exigência está ativa, nenhuma rota administrativa aceita a sessão administrativa antes da verificação. A exceção temporária de development está descrita abaixo.
+
+## Testes locais com MFA temporariamente dispensado
+
+Por orientação do responsável, o ambiente local de testes deve permitir o login administrativo só com email e senha por enquanto. O código já dispensa MFA por padrão quando `NODE_ENV=development`; o arquivo `backend/.env.example` e o Deployment local do Minikube deixam essa escolha explícita com `MFA_REQUIRED=false`.
+
+Para uma instalação existente, mantenha no `backend/.env`:
+
+```dotenv
+NODE_ENV=development
+MFA_REQUIRED=false
+```
+
+Reinicie o backend após alterar a configuração. Se o terminal já exporta uma configuração diferente, ajuste também essas duas variáveis antes de iniciar, dentro de `backend`:
+
+```powershell
+$env:NODE_ENV = "development"
+$env:MFA_REQUIRED = "false"
+npm start
+```
+
+Login e `/auth/me` passam a retornar `precisaMfa: false` e `configurarMfa: false`. Isso permite seguir direto para a equipe tanto no cliente nativo quanto no web. Login por senha, vínculo de educador, permissões, cookies/CSRF, limites, expiração e revogação continuam ativos. Nenhum dado do usuário nem fator cadastrado é removido.
+
+Para testar o MFA especificamente, configure `MFA_REQUIRED=true` e reinicie. Sessões que pularam a etapa continuam com `mfaVerificada=false` no banco e voltam a exigir o fator assim que a exigência é reativada. Não apagar fatores para contornar o login.
+
+Em produção, use `NODE_ENV=production` e remova `MFA_REQUIRED` ou defina `true`, além das demais variáveis de produção. `MFA_REQUIRED=false` faz a validação de inicialização falhar fora de development. Ambiente sem NODE_ENV definido também exige MFA. A dispensa é temporária para dados fictícios e testes locais, incluindo celular real na rede de testes.
 
 ## MFA e recuperação
 
-No primeiro login administrativo, a tela **Segurança da conta** mostra uma chave para adicionar a um aplicativo autenticador TOTP. Confirme um código de seis dígitos e guarde os dez códigos de recuperação apresentados uma única vez. Cada código é consumido atomicamente, mesmo com requisições simultâneas. TOTP aceito não pode ser reutilizado.
+Quando a exigência está ativa (sempre em produção), no primeiro login administrativo a tela **Segurança da conta** mostra uma chave para adicionar a um aplicativo autenticador TOTP. Confirme um código de seis dígitos e guarde os dez códigos de recuperação apresentados uma única vez. Cada código é consumido atomicamente, mesmo com requisições simultâneas. TOTP aceito não pode ser reutilizado.
 
 Nos próximos logins, informe o código do autenticador ou um código de recuperação, além da senha de acesso. O segredo TOTP é criptografado; códigos de recuperação são armazenados como HMAC, nunca em claro.
 

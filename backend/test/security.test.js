@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 let models, app, server, base, adminConnection, fixture, passwordHash;
 const dbName = "security_test_" + process.pid;
 process.env.NODE_ENV = "test";
+process.env.MFA_REQUIRED = "true";
 process.env.DB_HOST = process.env.TEST_DB_HOST || "127.0.0.1";
 process.env.DB_PORT = process.env.TEST_DB_PORT || "3306";
 process.env.DB_USER = process.env.TEST_DB_USER || "root";
@@ -35,6 +36,18 @@ async function adminToken() {
   assert.equal(result.status, 200);
   await models.Sessao.update({ mfaVerificada: true }, { where: { id: require("../services/sessions").hash(result.body.token) } });
   return result.body.token;
+}
+async function withoutLocalMfa(check) {
+  const mode = process.env.NODE_ENV;
+  const required = process.env.MFA_REQUIRED;
+  process.env.NODE_ENV = "development";
+  delete process.env.MFA_REQUIRED;
+  try { await check(); }
+  finally {
+    process.env.NODE_ENV = mode;
+    if (required === undefined) delete process.env.MFA_REQUIRED;
+    else process.env.MFA_REQUIRED = required;
+  }
 }
 before(async () => {
   assert.match(dbName, /^security_test_[0-9]+$/);
@@ -200,6 +213,72 @@ test("account blocking revokes sessions and reactivation never restores old sess
   assert.equal((await login("a@example.invalid")).status, 200);
   assert.equal((await request("/admin/usuarios/" + fixture.admin.id + "/ativo", { token: admin, method: "PATCH", body: { ativo: false } })).status, 409);
 });
+test("local native admin login skips MFA while authentication, roles and logout remain enforced", async () => {
+  await withoutLocalMfa(async () => {
+    const result = await login("admin@example.invalid");
+    assert.equal(result.status, 200);
+    assert.equal(result.body.precisaMfa, false);
+    assert.equal(result.body.configurarMfa, false);
+    const token = result.body.token;
+    const me = await request("/auth/me", { token });
+    assert.equal(me.body.precisaMfa, false);
+    assert.equal(me.body.configurarMfa, false);
+    assert.equal((await request("/admin/participantes", { token })).status, 200);
+    assert.equal((await request("/admin/participantes")).status, 401);
+    const educator = await login("a@example.invalid");
+    assert.equal((await request("/admin/participantes", { token: educator.body.token })).status, 403);
+    const session = await models.Sessao.findByPk(require("../services/sessions").hash(token));
+    assert.equal(session.mfaVerificada, false, "Skipping the requirement must not record an unperformed MFA as verified");
+    assert.equal((await request("/auth/logout", { token, method: "POST" })).status, 200);
+    assert.equal((await request("/admin/participantes", { token })).status, 401);
+  });
+});
+
+test("local web admin login skips MFA without exposing bearer tokens or bypassing CSRF", async () => {
+  await withoutLocalMfa(async () => {
+    const result = await login("admin@example.invalid", true);
+    assert.equal(result.status, 200);
+    assert.equal(result.body.precisaMfa, false);
+    assert.equal(result.body.configurarMfa, false);
+    assert.equal(result.body.token, undefined);
+    assert.match(result.headers.get("set-cookie"), /HttpOnly/i);
+    const cookie = result.headers.get("set-cookie").split(";")[0];
+    const me = await request("/auth/me", { cookie });
+    assert.equal(me.body.precisaMfa, false);
+    assert.equal(me.body.configurarMfa, false);
+    assert.equal((await request("/admin/participantes", { cookie })).status, 200);
+    const url = "/admin/usuarios/" + fixture.a.id + "/ativo";
+    assert.equal((await request(url, { cookie, origin, method: "PATCH", body: { ativo: false } })).status, 403);
+    assert.equal((await request(url, { cookie, origin, csrf: me.body.csrfToken, method: "PATCH", body: { ativo: false } })).status, 200);
+  });
+});
+
+test("local MFA exception preserves enrolled factors and cannot carry an unverified session into required MFA", async () => {
+  await withoutLocalMfa(async () => {
+    process.env.MFA_REQUIRED = "false";
+    const encrypted = require("../services/mfa").encrypt(new (require("otpauth").Secret)({ size: 20 }).base32);
+    const codes = ["synthetic-existing-recovery-hmac"];
+    await fixture.admin.update({ mfaSecret: encrypted, mfaRecoveryCodes: codes, mfaLastCounter: 123 });
+    const result = await login("admin@example.invalid");
+    assert.equal(result.body.precisaMfa, false);
+    assert.equal(result.body.configurarMfa, false);
+    const token = result.body.token;
+    assert.equal((await request("/admin/participantes", { token })).status, 200);
+    process.env.MFA_REQUIRED = "true";
+    assert.equal((await request("/admin/participantes", { token })).status, 403);
+    const me = await request("/auth/me", { token });
+    assert.equal(me.body.precisaMfa, true);
+    assert.equal(me.body.configurarMfa, false);
+    process.env.NODE_ENV = "production";
+    delete process.env.MFA_REQUIRED;
+    assert.equal((await request("/admin/participantes", { token })).status, 403);
+    const unchanged = await models.Usuario.findByPk(fixture.admin.id);
+    assert.equal(unchanged.mfaSecret, encrypted);
+    assert.equal(unchanged.mfaLastCounter, 123);
+    assert.deepEqual(unchanged.mfaRecoveryCodes, codes);
+  });
+});
+
 test("admin MFA gates access, encrypts the secret and recovery codes are single-use under concurrency", async () => {
   const first = await login("admin@example.invalid");
   const token = first.body.token;

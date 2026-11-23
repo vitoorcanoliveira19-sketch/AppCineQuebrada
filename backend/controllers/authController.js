@@ -4,7 +4,7 @@ const { Op } = require("sequelize");
 const { Usuario, Educador, Sessao, sequelize } = require("../models");
 const { criarSessao, clearCookie, revogarTodas } = require("../services/sessions");
 const { hashSenha } = require("../services/passwords");
-const { originAllowed } = require("../config/security");
+const { originAllowed, mfaRequired } = require("../config/security");
 const mfa = require("../services/mfa");
 // Equalize the expensive password check for missing/blocked users as well.
 const dummyHash = bcrypt.hashSync("synthetic-constant-for-timing-only", 12);
@@ -21,15 +21,17 @@ async function login(req, res, next) {
     const senhaCorreta = await bcrypt.compare(req.body.senha, usuario?.senha || dummyHash);
     if (!usuario || usuario.papel === "bloqueado" || !senhaCorreta) return res.status(401).json({ sucesso: false, mensagem: "Email ou senha incorretos." });
     const cliente = req.headers.origin || req.body.cliente === "web" ? "web" : "native";
+    const exigeMfa = mfaRequired() && usuario.papel === "administrador";
     const dados = await criarSessao(usuario, cliente, res);
     return res.json({ sucesso: true, ...dados, usuario: perfil(usuario),
-      precisaMfa: usuario.papel === "administrador", configurarMfa: usuario.papel === "administrador" && !usuario.mfaSecret });
+      precisaMfa: exigeMfa, configurarMfa: exigeMfa && !usuario.mfaSecret });
   } catch (error) { return next(error); }
 }
 async function perfilAtual(req, res) {
+  const exigeMfa = mfaRequired() && req.conta.papel === "administrador";
   return res.json({ sucesso: true, usuario: perfil(req.conta), csrfToken: req.csrfToken,
-    precisaMfa: req.conta.papel === "administrador" && !req.sessao.mfaVerificada,
-    configurarMfa: req.conta.papel === "administrador" && !req.conta.mfaSecret });
+    precisaMfa: exigeMfa && !req.sessao.mfaVerificada,
+    configurarMfa: exigeMfa && !req.conta.mfaSecret });
 }
 async function logout(req, res, next) {
   try { await req.sessao.destroy(); clearCookie(res); return res.json({ sucesso: true }); } catch (error) { return next(error); }

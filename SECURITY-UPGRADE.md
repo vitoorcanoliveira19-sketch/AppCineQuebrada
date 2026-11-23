@@ -15,6 +15,27 @@ O backend continua aceitando `Authorization: Bearer <token>` nos aplicativos, ma
 
 ## Configuração
 
+### Pasta do terminal e comandos npm
+
+Confira a última pasta no prompt antes de copiar os comandos:
+
+| Terminal atual | Instalar dependências da API | Migrar banco da API | Iniciar API |
+| --- | --- | --- | --- |
+| Raiz do projeto, como `novoapp>` | `npm ci --prefix backend` | `npm run migrate --prefix backend` | `npm start --prefix backend` |
+| Dentro de `novoapp\backend>` | `npm ci` | `npm run migrate` | `npm start` |
+
+Dentro de backend, acrescentar `--prefix backend` aponta para `backend/backend`, onde não existe o lockfile do projeto, e causa o erro EUSAGE. Com a API parada e o terminal já em backend, execute:
+
+```powershell
+npm ci
+npm run migrate
+npm start
+```
+
+O arquivo `backend/package-lock.json` é versionado. Se `npm ci` ainda reclamar do lockfile **sem o prefixo**, confira `Get-Location` e `Test-Path .\package-lock.json` e atualize o checkout com `git pull --ff-only`. Não apague o lockfile nem gere outro com npm install para contornar uma pasta incorreta.
+
+### Variáveis de ambiente
+
 | Variável | Finalidade |
 | --- | --- |
 | `SESSION_SECRET` | Segredo aleatório com pelo menos 32 caracteres para HMAC de CSRF e limites. `JWT_SECRET` é aceito temporariamente como nome legado. |

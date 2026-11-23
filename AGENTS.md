@@ -16,6 +16,8 @@ Quando a tarefa envolver QR Code, Expo Go, LAN ou teste em celular real, leia e 
 
 ## Verificação de mudanças
 
+Ao fornecer comandos npm, indique a pasta do terminal. --prefix backend só se aplica a partir da raiz do projeto; dentro de backend use npm ci, npm run migrate e npm start sem esse prefixo. Não recrie nem apague o package-lock.json para corrigir um comando executado na pasta errada. Os guias PowerShell usam git rev-parse --show-toplevel para localizar o projeto sem depender do caminho do desenvolvedor.
+
 Na raiz: npm test, npm run typecheck, npm run lint e npx expo install --check. Para mudanças em código compartilhado/nativo, exporte web/Android/iOS com uma EXPO_PUBLIC_API_URL HTTPS de teste.
 
 Para alterações no backend, rode a suíte com um banco local descartável pelas variáveis TEST_DB_*. Nunca use banco real nos testes. O CI usa MySQL 8.0.

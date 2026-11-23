@@ -9,6 +9,7 @@ A versão alvo é o **SDK 58**; o número de versão comercial do aplicativo Exp
 Na raiz real do repositório AppCineQuebrada:
 
 ~~~powershell
+Set-Location -LiteralPath (git rev-parse --show-toplevel)
 node --version
 npm ci
 npm ci --prefix backend
@@ -38,14 +39,16 @@ Use uma base de demonstração ou o ambiente expressamente designado para o test
 **Login atual:** email e senha em todos os ambientes. O MFA foi removido por solicitação do responsável; não há token de autenticador nem variável para reativá-lo. Para instalações antigas, execute a migração descrita em SECURITY-UPGRADE.md antes de iniciar a API. Ela remove somente os campos antigos do autenticador e preserva contas, senhas e dados do projeto.
 
 ~~~powershell
-# Executar os comandos do backend dentro da pasta backend
-Set-Location backend
+# Localiza backend a partir de qualquer pasta dentro deste repositório
+Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
 npm ci
 npm run migrate
 npm start
 ~~~
 
 Mantenha esse terminal aberto. BIND_HOST=0.0.0.0 permite o acesso pela rede; PORT normalmente é 3001. O frontend nunca deve receber DB_PASSWORD ou SESSION_SECRET.
+
+Nesse terminal, já dentro de backend, não acrescente --prefix backend. Se npm ci retornar EUSAGE por ausência de lockfile, confira a [pasta correta para os comandos](SECURITY-UPGRADE.md#pasta-do-terminal-e-comandos-npm).
 
 Não sobrescrever um .env existente, recriar o banco ou executar seed sobre dados reais. seed:validation é opcional, só para demonstração, e recusa NODE_ENV=production. Um educador precisa de cadastro ativo e vínculo com sua conta; criar só a conta não dá acesso às turmas.
 

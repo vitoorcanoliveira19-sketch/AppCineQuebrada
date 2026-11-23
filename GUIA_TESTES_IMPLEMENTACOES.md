@@ -8,18 +8,18 @@ Use o banco local e somente dados fictícios. Esta preparação cria a conta de 
 
 ## 1. Iniciar e preparar
 
-Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na pasta errada, use os caminhos completos abaixo. Ao copiar comandos, copie somente as linhas dentro do bloco; não copie as linhas com três crases.
+Abra o terminal do VS Code ou o PowerShell do Windows. Execute os comandos a partir de qualquer pasta dentro do repositório clonado. Os blocos abaixo localizam a raiz pelo Git, sem depender do caminho do computador. Ao copiar comandos, copie somente as linhas dentro do bloco; não copie as linhas com três crases.
 
 1. Instale as dependências (só precisa fazer na primeira vez):
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   Set-Location -LiteralPath (git rev-parse --show-toplevel)
    npm ci
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
    npm ci
    ```
 
-   Os próximos comandos desta seção usam a pasta `backend`, exceto quando indicarem outra pasta.
+   Os próximos comandos desta seção usam a pasta `backend`, exceto quando indicarem outra pasta. Nela, use `npm ci` sem `--prefix backend`; esse prefixo apontaria para `backend/backend` e causaria EUSAGE. O lockfile já existe no repositório; veja [a tabela de comandos por pasta](SECURITY-UPGRADE.md#pasta-do-terminal-e-comandos-npm).
 
 2. Inicie o MySQL local pelo Docker. Se o container `novoapp-mysql` já aparece como ativo no Docker Desktop, pule este comando. Se existe, mas está parado, execute `docker start novoapp-mysql`.
 
@@ -32,7 +32,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 3. Configure o backend. Se ainda não existir, copie o arquivo de exemplo; depois abra o arquivo para edição:
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
    if (!(Test-Path .env)) { Copy-Item .env.example .env }
    notepad .env
    ```
@@ -42,7 +42,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 4. Inicie o backend em uma janela do PowerShell. Entre diretamente na pasta do backend:
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
    npm start
    ```
 
@@ -51,7 +51,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 5. Crie seu login de administrador em **uma segunda janela do PowerShell**. Entre na pasta do backend antes dos comandos:
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+   Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
    $env:ADMIN_NAME = Read-Host "Nome do administrador"
    $env:ADMIN_EMAIL = Read-Host "Email para login"
    $secure = Read-Host "Crie uma senha com pelo menos 12 caracteres" -AsSecureString
@@ -65,7 +65,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 6. Em outra janela, na pasta `novoapp`, inicie o app:
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   Set-Location -LiteralPath (git rev-parse --show-toplevel)
    npx expo start
    ```
 
@@ -78,7 +78,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 3. Crie o usuário de acesso de um educador: o registro de educador em **Cadastros** não cria login. Em uma janela PowerShell na pasta `novoapp`, rode o bloco abaixo. Use o mesmo email do registro de educador e escolha uma senha de pelo menos 12 caracteres:
 
    ```powershell
-   Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp"
+   Set-Location -LiteralPath (git rev-parse --show-toplevel)
    $adminEmail = Read-Host "Email do administrador"
    $adminSecure = Read-Host "Senha do administrador" -AsSecureString
    $adminPassword = [Net.NetworkCredential]::new("", $adminSecure).Password
@@ -100,7 +100,7 @@ Abra o terminal do VS Code ou o PowerShell do Windows. Para evitar comandos na p
 Se esquecer a senha do educador, redefina-a numa janela PowerShell, usando o email da conta criada:
 
 ```powershell
-Set-Location "C:\Users\vitoo\OneDrive\Área de Trabalho\TESTE\novoapp\backend"
+Set-Location -LiteralPath (Join-Path (git rev-parse --show-toplevel) 'backend')
 $env:RESET_EMAIL = Read-Host "Email do educador"
 $secure = Read-Host "Nova senha (mínimo 12 caracteres)" -AsSecureString
 $env:RESET_PASSWORD = [Net.NetworkCredential]::new("", $secure).Password
